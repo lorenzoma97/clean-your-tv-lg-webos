@@ -75,6 +75,7 @@ jobs:
       - name: Test affected components
         if: needs.scope.outputs.any == 'true'
         env:
+          RELEASE_REPO: Razdva122/clean-your-tv-lg-webos
           TV: ${{ needs.scope.outputs.tv }}
           INSTALLER: ${{ needs.scope.outputs.installer }}
           ANDROID: ${{ needs.scope.outputs.android }}

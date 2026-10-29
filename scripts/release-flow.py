@@ -12,7 +12,8 @@ import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
-REPO = os.environ.get('GITHUB_REPOSITORY', 'Razdva122/clean-your-tv-lg-webos')
+# Fork lorenzoma97: RELEASE_REPO keeps the README checks on the original project's release links when CI runs in a fork.
+REPO = os.environ.get('RELEASE_REPO') or os.environ.get('GITHUB_REPOSITORY', 'Razdva122/clean-your-tv-lg-webos')
 BRANCH = 'release/next'
 PLAN = 'release-plan.json'
 BUILD_JOBS = {
