@@ -8,7 +8,7 @@
   var CONTENT_URL = 'https://lorenzoma97.github.io/tv-casa-data/content.json';
   var TMDB = 'https://api.themoviedb.org/3/tv/';
   var IMG = 'https://image.tmdb.org/t/p/';
-  var ROTATE_MS = 8000, CONTENT_TTL = 6 * 3600 * 1000, DETAILS_TTL = 7 * 24 * 3600 * 1000;
+  var ROTATE_MS = 8000, CONTENT_TTL = 6 * 3600 * 1000, DETAILS_TTL = 7 * 24 * 3600 * 1000, HOME_PLOT = 150;
   var KEY_STORE = 'casa.tmdbKey';
   var Core = window.CasaCore;
   var demo = window.CASA_DEMO || null;
@@ -129,17 +129,10 @@
 
   // ---- drawing ---------------------------------------------------------------------------------
 
-  /* TMDB's CDN; the preview ships its own copies (demo.imageBase: backdrop/ and logo/). */
-  function image(size, path) {
-    if (demo && demo.imageBase) return demo.imageBase + (size === 'w500' ? 'logo' : 'backdrop') + path;
-    return IMG + size + path;
-  }
-
-  function chip(text, cls) {
-    var c = el('span', null, 'casa-chip' + (cls ? ' ' + cls : ''));
-    c.textContent = text;
-    chipsEl.appendChild(c);
-    return c;
+  /* TMDB's CDN in the size each place needs; the preview ships its own copies (demo.imageBase: backdrop/, logo/). */
+  function image(kind, path, size) {
+    if (demo && demo.imageBase) return demo.imageBase + kind + path;
+    return IMG + (size || (kind === 'logo' ? 'w500' : 'original')) + path;
   }
 
   /* Black lettering on a light-background logo is drawn white (alpha kept), as on the Metz. Needs CORS: TMDB allows it. */
@@ -156,12 +149,54 @@
     } catch (_) { /* tainted canvas or no canvas: keep the logo as it is */ }
   }
 
+  /* A title card: the backdrop, its logo (or its name) at the foot, and optionally a service badge. */
+  function card(item, badge) {
+    var c = el('div', null, 'casa-card');
+    c.style.backgroundImage = 'url("' + image('backdrop', item.backdrop, 'w780') + '")';
+    if (item.logo) {
+      var logo = el('img', null, 'casa-card-logo');
+      logo.crossOrigin = 'anonymous';
+      logo.onload = function() { whitenIfDark(logo); };
+      logo.src = image('logo', item.logo, 'w300');
+      c.appendChild(logo);
+    } else {
+      var name = el('span', null, 'casa-card-name');
+      name.textContent = item.title;
+      c.appendChild(name);
+    }
+    if (badge) {
+      var b = el('span', null, 'casa-card-badge ' + badge.cls);
+      b.textContent = badge.text;
+      c.appendChild(b);
+    }
+    return c;
+  }
+
+  /* The picture's glow colour for the rest of Home (casa-home.js). Same-origin or CORS pictures only. */
+  function sampleColor(img) {
+    try {
+      var canvas = document.createElement('canvas');
+      canvas.width = 24;
+      canvas.height = 14;
+      var g = canvas.getContext('2d');
+      g.drawImage(img, 0, 0, 24, 14);
+      return Core.dominant(g.getImageData(0, 0, 24, 14).data);
+    } catch (_) { return null; }
+  }
+
+  function chip(text, cls) {
+    var c = el('span', null, 'casa-chip' + (cls ? ' ' + cls : ''));
+    c.textContent = text;
+    chipsEl.appendChild(c);
+    return c;
+  }
+
   function text(item) {
     var e = item.entry;
     if (item.logo) {
       logoEl.crossOrigin = 'anonymous';
       logoEl.onload = function() { whitenIfDark(logoEl); };
-      logoEl.src = image('w500', item.logo);
+      logoEl.src = image('logo', item.logo);
       logoEl.style.display = '';
       nameEl.style.display = 'none';
     } else {
@@ -171,26 +206,33 @@
     }
     chipsEl.innerHTML = '';
     if (e.top) {
-      var top = chip('Top 10', 'top'), rank = document.createElement('b');
-      rank.textContent = e.top;
-      top.appendChild(rank);
+      var top = el('span', null, 'casa-top');
+      top.innerHTML = '<i>TOP</i><b>10</b>';
+      chipsEl.appendChild(top);
+      chip('N. ' + e.top + ' in Italia', 'rank');
     }
     if (e.tag) chip(e.tag, 'tag');
     if (e.season) chip(e.season);
-    if ((detail || item.showMeta) && item.meta) {
+    if (item.meta) {
       var m = el('span', null, 'casa-meta');
-      m.textContent = item.meta;
+      // "Miniserie" once: the badge already says it.
+      m.textContent = item.meta.split(' · ').filter(function(part) { return part !== e.season; }).join(' · ');
       chipsEl.appendChild(m);
     }
-    plotEl.textContent = item.plot || '';
+    plotEl.textContent = detail ? item.plot || '' : Core.shortPlot(item.plot, HOME_PLOT);
     var svc = Core.serviceOf(app && app.id);
     watchEl.textContent = '▶  ' + (item.cta || (svc === 'netflix' && Core.netflixParams(e.netflixId) ? 'Guarda il titolo' : 'Apri ' + (app ? app.title : '')));
     dotsEl.innerHTML = '';
     for (var i = 0; i < Math.min(items.length, 12); i++) dotsEl.appendChild(el('span', null, 'casa-dot' + (i === index ? ' on' : '')));
+    // The new title rises in: logo, badges, plot and button one after the other (casa.css).
+    hero.classList.remove('enter');
+    hero.offsetWidth;
+    hero.classList.add('enter');
   }
 
   function picture(item) {
     var next = layers[1 - layerIndex], current = layers[layerIndex], img = new Image(), mine = token;
+    if (!demo) img.crossOrigin = 'anonymous';   // TMDB allows it: the glow colour needs the pixels
     img.onload = function() {
       if (mine !== token) return;
       next.style.transition = 'none';
@@ -202,8 +244,10 @@
       next.style.transform = 'scale(1.06)';   // the slow push-in, over the 9.5 s transition
       current.style.opacity = '0';
       layerIndex = 1 - layerIndex;
+      var rgb = sampleColor(img);
+      if (rgb && window.CasaHome) CasaHome.tint(rgb);
     };
-    img.src = image('original', item.backdrop);
+    img.src = image('backdrop', item.backdrop);
   }
 
   function show(i, first) {
@@ -211,6 +255,7 @@
     index = (i + items.length) % items.length;
     var item = items[index];
     document.body.classList.add('casa-on');
+    if (window.CasaRest) CasaRest.sky(false);
     picture(item);
     clearTimeout(swapTimer);
     if (first || detail) {
@@ -235,19 +280,14 @@
     index = -1;
     document.body.classList.remove('casa-on');
     layers[0].style.opacity = layers[1].style.opacity = '0';
+    if (window.CasaRest) CasaRest.sky(true);   // an app without titles: the live sky over Bologna
   }
 
   // ---- detail ----------------------------------------------------------------------------------
 
   function buildCards() {
     cardsEl.innerHTML = '';
-    items.forEach(function(item) {
-      var card = el('div', null, 'casa-card'), name = el('span');
-      card.style.backgroundImage = 'url("' + image('w780', item.backdrop) + '")';
-      name.textContent = item.title;
-      card.appendChild(name);
-      cardsEl.appendChild(card);
-    });
+    items.forEach(function(item) { cardsEl.appendChild(card(item)); });
     markCard();
   }
   function markCard() {
@@ -303,7 +343,7 @@
         else if (key !== 38) mine = false;   // volume and the rest pass through
       }
     } else if (event.type === 'keydown' && key === 38 && zone === 'grid' && row === 0 && items.length && !editing()
-        && !document.body.classList.contains('casa-scopri')) {
+        && !document.body.classList.contains('casa-scopri') && !document.body.classList.contains('casa-rest')) {
       mine = true;
       enterDetail();
     } else if (event.type === 'keyup' && swallow[key]) {
@@ -320,9 +360,9 @@
 
   /* Focus on a tile (row 0 is the dock; el its element; last: on the last row of apps). Leaving the dock or an app
      without titles shows the app's own look. */
-  function focus(tile, tileRow, el, last) {
+  function focus(tile, tileRow, node, last) {
     row = tileRow;
-    tileEl = el || null;
+    tileEl = node || null;
     lastRow = !!last;
     if (window.CasaHome) CasaHome.focus(tileEl, row, lastRow);
     var id = tile && tile.id, svc = tileRow === 0 ? Core.serviceOf(id) : null;
@@ -370,5 +410,5 @@
   document.addEventListener('keyup', onKey, true);
   window.CasaShelf = {focus: focus, zone: setZone, feature: feature, refocus: refocus,
     state: function() { return {zone: zone, row: row, lastRow: lastRow, detail: detail}; },
-    util: {load: load, keep: keep, getJSON: getJSON, content: content, details: details, image: image}};
+    util: {load: load, keep: keep, getJSON: getJSON, content: content, details: details, image: image, card: card}};
 }());
