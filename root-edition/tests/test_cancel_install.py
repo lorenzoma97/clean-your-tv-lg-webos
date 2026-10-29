@@ -59,7 +59,7 @@ class CancellationTests(unittest.TestCase):
         self.assertEqual(self.f.root_store.read('install-terminal'),self.terminal)
     def test_inspection_has_no_device_writes_and_proves_every_original_byte(self):
         before=sorted(str(p.relative_to(self.f.base)) for p in self.f.base.rglob('*'))
-        proof=self.inspect();self.assertEqual(proof['state'],'admissible');self.assertEqual(proof['payload_files'],55)  # Two eARC UI files; service logic stays in handlers.js.
+        proof=self.inspect();self.assertEqual(proof['state'],'admissible');self.assertEqual(proof['payload_files'],58)  # Two eARC UI files; service logic stays in handlers.js. Fork: + the 3 Casa shelf files.
         self.assertEqual(before,sorted(str(p.relative_to(self.f.base)) for p in self.f.base.rglob('*')))
         self.assert_original()
     def test_one_remove_preserves_original_and_terminalizes_cancellation(self):

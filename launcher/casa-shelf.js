@@ -128,6 +128,12 @@
 
   // ---- drawing ---------------------------------------------------------------------------------
 
+  /* TMDB's CDN; the preview ships its own copies (demo.imageBase: backdrop/ and logo/). */
+  function image(size, path) {
+    if (demo && demo.imageBase) return demo.imageBase + (size === 'w500' ? 'logo' : 'backdrop') + path;
+    return IMG + size + path;
+  }
+
   function chip(text, cls) {
     var c = el('span', null, 'casa-chip' + (cls ? ' ' + cls : ''));
     c.textContent = text;
@@ -154,7 +160,7 @@
     if (item.logo) {
       logoEl.crossOrigin = 'anonymous';
       logoEl.onload = function() { whitenIfDark(logoEl); };
-      logoEl.src = IMG + 'w500' + item.logo;
+      logoEl.src = image('w500', item.logo);
       logoEl.style.display = '';
       nameEl.style.display = 'none';
     } else {
@@ -196,7 +202,7 @@
       current.style.opacity = '0';
       layerIndex = 1 - layerIndex;
     };
-    img.src = IMG + 'original' + item.backdrop;
+    img.src = image('original', item.backdrop);
   }
 
   function show(i, first) {
@@ -236,7 +242,7 @@
     cardsEl.innerHTML = '';
     items.forEach(function(item) {
       var card = el('div', null, 'casa-card'), name = el('span');
-      card.style.backgroundImage = 'url("' + IMG + 'w780' + item.backdrop + '")';
+      card.style.backgroundImage = 'url("' + image('w780', item.backdrop) + '")';
       name.textContent = item.title;
       card.appendChild(name);
       cardsEl.appendChild(card);
