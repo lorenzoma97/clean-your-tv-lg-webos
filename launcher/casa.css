@@ -176,3 +176,102 @@ body.casa-detail #casaPlot { max-height: 164px; }
 body.casa-detail #casaCards { display: block; }
 body.casa-detail #casaWatch { font-size: 27px; padding: 12px 30px 12px 28px; color: #000; background: #fff; border-color: #fff; }
 body.casa-detail #casaDots { display: none; }
+
+/* ---- the rest of Home (casa-home.js) --------------------------------------------------------- */
+
+/* A 55" screen: nine tiles in one row (config.js) make each about 9 cm wide; rounder corners would read as pills. */
+.card, .card::after { border-radius: 18px; }
+#glass { border-radius: 24px; }
+
+/* Smaller clock and pills, the clock on a glass panel (blurred where the TV can, casa-home.js). */
+#leftBlock {
+  padding: 16px 34px 14px 28px;
+  border-radius: 30px;
+  background: rgba(14, 15, 20, 0.5);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+}
+#greeting { font-size: 19px; }
+#clock { font-size: 82px; }
+.divider { height: 42px; margin: 0 26px 12px; }
+#date { margin-bottom: 14px; font-size: 23px; }
+#topButtons { align-items: center; }
+.pill { height: 66px; margin-left: 16px; padding: 0 30px 0 24px; font-size: 25px; }
+.pill svg { width: 34px; height: 34px; margin-right: 14px; }
+.casa-frosted { background-color: rgba(18, 19, 24, 0.34); }
+#dockBand { background: rgba(20, 20, 24, 0.66); }
+
+#casaWeather {
+  display: flex;
+  align-items: center;
+  height: 96px;
+  padding: 0 30px 0 22px;
+  border-radius: 30px;
+  background: rgba(14, 15, 20, 0.5);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+}
+#casaWeather svg { width: 58px; height: 58px; }
+.wx-temp { margin-left: 14px; font-size: 60px; font-weight: 300; line-height: 1; }
+.wx-lines { margin-left: 18px; }
+.wx-lines span { display: block; }
+.wx-city { font-size: 15px; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(255, 255, 255, 0.6); }
+.wx-desc { margin-top: 2px; font-size: 22px; font-weight: 300; color: rgba(255, 255, 255, 0.88); }
+.wx-air {
+  display: inline-block !important;
+  margin-top: 6px;
+  padding: 2px 10px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.wx-air.good { color: #50c878; background: rgba(80, 200, 120, 0.16); }
+.wx-air.fair { color: #f2c94c; background: rgba(242, 201, 76, 0.16); }
+.wx-air.poor { color: #f2994a; background: rgba(242, 153, 74, 0.16); }
+
+/* A pool of light under the focused app: OLED black everywhere else. */
+#casaLight {
+  position: absolute;
+  width: 900px;
+  height: 520px;
+  opacity: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.13) 0%, rgba(255, 255, 255, 0.05) 38%, rgba(255, 255, 255, 0) 70%);
+  transition: left 420ms cubic-bezier(0.25, 0.8, 0.3, 1), top 420ms cubic-bezier(0.25, 0.8, 0.3, 1), opacity 300ms ease;
+}
+
+/* The apps beside the focused one rest a little dimmer, so the focus reads from the sofa. */
+body.casa-dim .item.dock.shown:not(.focused) { opacity: 0.62; }
+body.casa-scopri .item.shown { opacity: 0.45; }
+body.casa-scopri #glass { opacity: 0 !important; }
+
+/* The sheen on the focused tile, moved by the Magic Remote pointer. */
+.casa-sheen {
+  position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 30% 0%, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0) 58%);
+}
+.item.focused .card { transition: transform 200ms ease-out; }
+
+/* "Scopri una nuova serie": tonight's five under the apps. */
+#casaScopri {
+  position: absolute;
+  left: 112px;
+  transition: opacity 300ms ease;
+}
+body.casa-detail #casaScopri { opacity: 0; }
+#casaScopriLabel {
+  display: flex;
+  align-items: center;
+  margin-left: 6px;
+  font-size: 19px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #e5a00d;
+}
+#casaScopriLabel b { margin-left: 14px; font-size: 15px; opacity: 0; transition: opacity 200ms ease; }
+body.casa-dim #casaScopriLabel b { opacity: 0.8; }
+#casaScopriCards { margin-top: 4px; white-space: nowrap; }
+#casaScopriCards .casa-card { width: 224px; height: 126px; margin: 14px 22px 0 6px; }

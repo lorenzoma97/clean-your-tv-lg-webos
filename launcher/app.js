@@ -745,7 +745,7 @@
         updateAmbient(e.color);
       }(tiles[index]) : heroVisible && (heroVisible = false, heroTitle.style.opacity = "0");
       updateAmbient(tiles[index].color);
-      window.CasaShelf && CasaShelf.focus(tiles[index].app, row);   // fork lorenzoma97: the cinematic shelf
+      window.CasaShelf && CasaShelf.focus(tiles[index].app, row, tiles[index].el, row === rowFor(tiles.length - 1));   // fork lorenzoma97
     }
   }
   function updateAmbient(rgb) {

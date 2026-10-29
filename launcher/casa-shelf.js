@@ -16,6 +16,7 @@
   var art, layers, scrim, hero, logoEl, nameEl, chipsEl, plotEl, watchEl, dotsEl, cardsEl;
   var layerIndex = 0, timer = null, swapTimer = null, pickTimer = null;
   var app = null, row = -1, zone = 'none', items = [], index = -1, token = 0, detail = false, swallow = {};
+  var tileEl = null, lastRow = false;
   var shelves = {};   // service -> resolved items, kept for the session
 
   function el(tag, id, cls) {
@@ -176,14 +177,14 @@
     }
     if (e.tag) chip(e.tag, 'tag');
     if (e.season) chip(e.season);
-    if (detail && item.meta) {
+    if ((detail || item.showMeta) && item.meta) {
       var m = el('span', null, 'casa-meta');
       m.textContent = item.meta;
       chipsEl.appendChild(m);
     }
     plotEl.textContent = item.plot || '';
     var svc = Core.serviceOf(app && app.id);
-    watchEl.textContent = '▶  ' + (svc === 'netflix' && Core.netflixParams(e.netflixId) ? 'Guarda il titolo' : 'Apri ' + (app ? app.title : ''));
+    watchEl.textContent = '▶  ' + (item.cta || (svc === 'netflix' && Core.netflixParams(e.netflixId) ? 'Guarda il titolo' : 'Apri ' + (app ? app.title : '')));
     dotsEl.innerHTML = '';
     for (var i = 0; i < Math.min(items.length, 12); i++) dotsEl.appendChild(el('span', null, 'casa-dot' + (i === index ? ' on' : '')));
   }
@@ -301,7 +302,8 @@
         else if (key === 40 || key === 461 || key === 27) exitDetail();
         else if (key !== 38) mine = false;   // volume and the rest pass through
       }
-    } else if (event.type === 'keydown' && key === 38 && zone === 'grid' && row === 0 && items.length && !editing()) {
+    } else if (event.type === 'keydown' && key === 38 && zone === 'grid' && row === 0 && items.length && !editing()
+        && !document.body.classList.contains('casa-scopri')) {
       mine = true;
       enterDetail();
     } else if (event.type === 'keyup' && swallow[key]) {
@@ -316,9 +318,13 @@
 
   // ---- what app.js calls -----------------------------------------------------------------------
 
-  /* Focus on a tile (row 0 is the dock). Leaving the dock or an app without titles shows the app's own look. */
-  function focus(tile, tileRow) {
+  /* Focus on a tile (row 0 is the dock; el its element; last: on the last row of apps). Leaving the dock or an app
+     without titles shows the app's own look. */
+  function focus(tile, tileRow, el, last) {
     row = tileRow;
+    tileEl = el || null;
+    lastRow = !!last;
+    if (window.CasaHome) CasaHome.focus(tileEl, row, lastRow);
     var id = tile && tile.id, svc = tileRow === 0 ? Core.serviceOf(id) : null;
     if (app && tile && app.id === id && items.length) return;   // same app: keep rotating
     app = tile;
@@ -339,6 +345,21 @@
   function setZone(z) {
     zone = z;
     if (z !== 'grid' && detail) exitDetail();
+    if (window.CasaHome) CasaHome.zone(z);
+  }
+
+  /* One title on the shelf, not rotating (the Scopri row's focused card); refocus() brings the app's titles back. */
+  function feature(item) {
+    token++;
+    clearTimeout(timer);
+    items = [item];
+    index = 0;
+    show(0, true);
+  }
+  function refocus() {
+    var t = app;
+    app = null;
+    focus(t, row, tileEl, lastRow);
   }
 
   if (!Core) return;
@@ -347,5 +368,7 @@
   document.addEventListener('webOSRelaunch', function(e) { takeKey(e && e.detail); });
   document.addEventListener('keydown', onKey, true);
   document.addEventListener('keyup', onKey, true);
-  window.CasaShelf = {focus: focus, zone: setZone};
+  window.CasaShelf = {focus: focus, zone: setZone, feature: feature, refocus: refocus,
+    state: function() { return {zone: zone, row: row, lastRow: lastRow, detail: detail}; },
+    util: {load: load, keep: keep, getJSON: getJSON, content: content, details: details, image: image}};
 }());

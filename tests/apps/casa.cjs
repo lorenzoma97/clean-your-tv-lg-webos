@@ -78,4 +78,30 @@ assert.ok(!Casa.darkLogo(px([red, red, red, clear, clear, clear, clear, clear, c
 assert.ok(!Casa.darkLogo(px([black, black, black, black, black, black, black, black, black, clear])), 'a plate');
 assert.ok(!Casa.darkLogo(px([clear, clear])));
 
+// Scopri: tonight's five never repeat a watched title, and stay the same for the day.
+const pool = {all: [1, 2, 3, 4, 5, 6, 7], items: [{tmdb: 3, s: ['prime', 'netflix'], nf: '9'}, {tmdb: 4, s: ['raiplay']}]};
+let calls = 0;
+const random = () => (calls++ % 10) / 10;
+const five = Casa.pick(pool, null, {2: true}, {}, 5, random);
+assert.equal(five.length, 5);
+assert.ok(!five.includes(2), 'a watched title never comes back');
+assert.equal(new Set(five).size, 5);
+assert.deepEqual(Casa.tonight(pool, {day: '2026-10-29', ids: [1, 3, 4, 5, 6]}, '2026-10-29', {}, 5, random), [1, 3, 4, 5, 6]);
+assert.notDeepEqual(Casa.tonight(pool, {day: '2026-10-28', ids: [1, 3, 4, 5, 6]}, '2026-10-29', {1: true}, 5, random), [1, 3, 4, 5, 6]);
+assert.equal(Casa.poolService(Casa.poolItem(pool, 3)), 'netflix', 'Netflix first: it opens the title itself');
+assert.equal(Casa.poolService(Casa.poolItem(pool, 4)), 'raiplay');
+assert.equal(Casa.appOf('prime'), 'amazon');
+
+// Weather words, as on the Metz.
+assert.deepEqual(Casa.describe(0, true), ['Sereno', 'sun']);
+assert.equal(Casa.describe(0, false)[1], 'moon');
+assert.equal(Casa.describe(2, true)[0], 'Poco nuvoloso');
+assert.equal(Casa.describe(45, true)[1], 'fog');
+assert.equal(Casa.describe(65, true)[0], 'Pioggia forte');
+assert.equal(Casa.describe(95, true)[1], 'storm');
+assert.equal(Casa.air(18), 'Aria buona');
+assert.equal(Casa.air(40), 'Aria discreta');
+assert.equal(Casa.air(61), 'Aria scadente');
+assert.equal(Casa.air(-1), null);
+
 console.log('PASS Casa shelf rules');

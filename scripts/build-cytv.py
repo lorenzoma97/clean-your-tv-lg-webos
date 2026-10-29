@@ -162,7 +162,7 @@ def build_payload():
         helper = pack_app(app, service, architecture='arm', helper=True)
     (payload / 'helper.ipk').write_bytes(helper)
     launcher = {n: b for n, b in tracked_files('launcher').items() if n != 'apps.js' and not n.startswith('icons/')}
-    launcher['config.js'] = b'window.CONFIG = {columns:5,dockApps:[],hiddenApps:["com.gathin.tvhome","com.local.nativehome"]};\n'
+    # Fork lorenzoma97: the committed launcher/config.js (nine columns, the C3's dock) instead of the generic five.
     launcher['apps.js'] = b'window.TV_APPS = {apps:[],inputs:[]};\n'
     renewal = {n: b for n, b in tracked_files('renewal-service').items() if not n.startswith('state/')}
     (payload / 'launcher.ipk').write_bytes(pack_app(launcher, renewal))

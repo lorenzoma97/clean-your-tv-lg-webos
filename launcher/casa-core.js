@@ -153,7 +153,79 @@
     return solid > 0 && solid < pixels * 0.7 && dark >= solid * 0.65;
   }
 
-  return {plan: plan, serviceOf: serviceOf, seasonLabel: seasonLabel, topLine: topLine, novitaLine: novitaLine,
+  // ---- Scopri: tonight's five from the pool (Metz: Pool.java) ------------------------------------
+
+  /* Pool ids for a genre (null: all), best first, without the watched and the skipped. */
+  function candidates(pool, genre, seen, skipped) {
+    var ids = (genre === null ? pool && pool.all : pool && pool.by_genre && pool.by_genre[genre]) || [];
+    return ids.filter(function(id) { return id > 0 && !seen[id] && !skipped[id]; });
+  }
+
+  /* n different titles in random order (random: a function returning [0, 1)); repeats rather than a short row. */
+  function pick(pool, genre, seen, avoid, n, random) {
+    var c = candidates(pool, genre, seen, avoid);
+    if (c.length < n) c = candidates(pool, genre, seen, {});
+    for (var i = c.length - 1; i > 0; i--) {
+      var j = Math.floor(random() * (i + 1)), t = c[i];
+      c[i] = c[j];
+      c[j] = t;
+    }
+    return c.slice(0, n);
+  }
+
+  /* The saved five while they are from today and none was watched since; else five new. */
+  function tonight(pool, saved, today, seen, n, random) {
+    var ok = saved && saved.day === today && saved.ids && saved.ids.length === n;
+    for (var i = 0; ok && i < saved.ids.length; i++) ok = !seen[saved.ids[i]];
+    return ok ? saved.ids.slice() : pick(pool, null, seen, {}, n, random);
+  }
+
+  function poolItem(pool, id) {
+    var items = pool && pool.items || [];
+    for (var i = 0; i < items.length; i++) if (items[i].tmdb === id) return items[i];
+    return null;
+  }
+
+  /* The service OK opens for a pool title: Netflix first when it has it (the one with a direct link). */
+  function poolService(item) {
+    var s = item && item.s || [];
+    return s.indexOf('netflix') >= 0 ? 'netflix' : s[0] || null;
+  }
+
+  /* The first webOS app id of a service (the one the TV has). */
+  function appOf(svc) { return APPS[svc] ? APPS[svc][0] : null; }
+
+  // ---- weather (Open-Meteo, Bologna; Metz: Weather.java) --------------------------------------
+
+  /* WMO weather code -> Italian words and an icon name (sun, moon, partly, cloud, fog, rain, snow, storm). */
+  function describe(code, day) {
+    if (code === 0) return ['Sereno', day ? 'sun' : 'moon'];
+    if (code === 1) return ['Prevalentemente sereno', day ? 'partly' : 'moon'];
+    if (code === 2) return ['Poco nuvoloso', 'partly'];
+    if (code === 3) return ['Nuvoloso', 'cloud'];
+    if (code === 45 || code === 48) return ['Nebbia', 'fog'];
+    if (code >= 51 && code <= 57) return ['Pioviggine', 'rain'];
+    if (code >= 61 && code <= 67) return [code >= 65 ? 'Pioggia forte' : 'Pioggia', 'rain'];
+    if (code >= 71 && code <= 77) return ['Neve', 'snow'];
+    if (code >= 80 && code <= 82) return ['Rovesci', 'rain'];
+    if (code === 85 || code === 86) return ['Rovesci di neve', 'snow'];
+    if (code >= 95) return ['Temporale', 'storm'];
+    return ['', 'cloud'];
+  }
+
+  /* European AQI bands (EEA). */
+  function air(aqi) {
+    if (aqi === null || aqi === undefined || aqi < 0) return null;
+    if (aqi <= 20) return 'Aria buona';
+    if (aqi <= 40) return 'Aria discreta';
+    if (aqi <= 60) return 'Aria moderata';
+    if (aqi <= 80) return 'Aria scadente';
+    if (aqi <= 100) return 'Aria molto scadente';
+    return 'Aria pessima';
+  }
+
+  return {plan: plan, serviceOf: serviceOf, appOf: appOf, pick: pick, tonight: tonight, poolItem: poolItem,
+    poolService: poolService, describe: describe, air: air, seasonLabel: seasonLabel, topLine: topLine, novitaLine: novitaLine,
     netflixParams: netflixParams, logo: logo, backdrop: backdrop, shortPlot: shortPlot, meta: meta, summary: summary,
     darkLogo: darkLogo, NETFLIX_TOP: NETFLIX_TOP, NETFLIX_NEW: NETFLIX_NEW};
 }));
