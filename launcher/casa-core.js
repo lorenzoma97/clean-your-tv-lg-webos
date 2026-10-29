@@ -1,0 +1,159 @@
+/* Fork lorenzoma97, "Casa": what the shelf shows for each streaming app, ported from the Metz add-on (Shelf, Tmdb).
+   Data: content.json from lorenzoma97/tv-casa-data (Netflix Top 10 Italia, Novita per service: TMDB ids only) plus
+   TMDB details fetched on the TV with the owner's key. Pure rules, no DOM: tests/apps/casa.cjs. */
+(function(root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.CasaCore = factory();
+}(this, function() {
+  'use strict';
+  var NETFLIX_TOP = 8, NETFLIX_NEW = 4, OTHER_NEW = 10;
+  var SEASON = /^.*?:\s*(season|stagione|part|parte|volume)\s+(\d+)\s*$/i;
+  /* content.json service -> the webOS app ids that open it (and the browser preview's demo tiles). */
+  var APPS = {
+    netflix: ['netflix', 'preview.netflix'],
+    prime: ['amazon', 'preview.prime'],
+    raiplay: ['it.rainet.raiplay'],
+    infinity: ['com.5412449.198417']
+  };
+
+  function blank(s) { return s === null || s === undefined || String(s).replace(/\s+/g, '') === ''; }
+  function opt(x, key) { return x[key] === null || x[key] === undefined ? null : String(x[key]); }
+
+  /* "Real Men: Season 2" -> "Stagione 2"; "Below: Limited Series" -> "Miniserie"; anything else -> null. */
+  function seasonLabel(name) {
+    if (blank(name)) return null;
+    var s = String(name).replace(/^\s+|\s+$/g, '');
+    if (/limited series$/i.test(s)) return 'Miniserie';
+    var m = SEASON.exec(s);
+    if (!m) return null;
+    var kind = m[1].toLowerCase();
+    if (kind === 'season' || kind === 'stagione') return 'Stagione ' + m[2];
+    if (kind === 'part' || kind === 'parte') return 'Parte ' + m[2];
+    return 'Volume ' + m[2];
+  }
+
+  function topLine(rank, season) {
+    var s = seasonLabel(season);
+    return 'Top 10 in Italia · n. ' + rank + (s ? ' · ' + s : '');
+  }
+
+  function novitaLine(kind, season) {
+    return kind === 'new_series' ? 'Nuova serie' : 'Nuova stagione ' + season;
+  }
+
+  /* service -> entries in shelf order, one per series: Netflix Top 10 then its Novita; other services their Novita. */
+  function plan(content) {
+    var out = {}, services = content && content.services, novita = content && content.novita;
+    if (!services) return out;
+    ['netflix', 'prime', 'raiplay', 'infinity'].forEach(function(svc) {
+      if (!services[svc]) return;
+      var list = [], seen = {};
+      if (svc === 'netflix') {
+        var items = content.top10_netflix && content.top10_netflix.items || [];
+        for (var i = 0; i < items.length && list.length < NETFLIX_TOP; i++) {
+          var x = items[i] || {}, id = +x.tmdb || 0;
+          if (id <= 0 || seen[id]) continue;   // the same series twice in the chart (S1 and S2): once
+          seen[id] = true;
+          list.push({tmdb: id, line: topLine(x.rank, opt(x, 'season')), netflixId: opt(x, 'netflix_id'),
+            top: +x.rank || 0, tag: null, season: seasonLabel(opt(x, 'season'))});
+        }
+      }
+      var news = novita && novita[svc] || [], cap = svc === 'netflix' ? list.length + NETFLIX_NEW : OTHER_NEW;
+      for (var j = 0; j < news.length && list.length < cap; j++) {
+        var n = news[j] || {}, nid = +n.tmdb || 0;
+        if (nid <= 0 || seen[nid]) continue;
+        seen[nid] = true;
+        var line = novitaLine(n.kind, n.season === null || n.season === undefined ? 1 : n.season);
+        list.push({tmdb: nid, line: line, netflixId: opt(n, 'nf'), top: 0, tag: line, season: null});
+      }
+      if (list.length) out[svc] = list;
+    });
+    return out;
+  }
+
+  function serviceOf(appId) {
+    for (var svc in APPS) if (APPS[svc].indexOf(appId) >= 0) return svc;
+    return null;
+  }
+
+  /* The Netflix app opens the title itself with this launch parameter (tested on the C3, webOS 26, 2026-10-28). */
+  function netflixParams(netflixId) {
+    if (!/^\d+$/.test(netflixId || '')) return null;
+    return {contentTarget: 'm=https://www.netflix.com/title/' + netflixId + '&source_type=4'};
+  }
+
+  /* The title's logo (transparent PNG): Italian, then English, then language-free; best voted; never SVG. */
+  function logo(d) {
+    var logos = d && d.images && d.images.logos || [];
+    var langs = ['it', 'en', null];
+    for (var l = 0; l < langs.length; l++) {
+      var best = null, score = -1;
+      for (var i = 0; i < logos.length; i++) {
+        var x = logos[i] || {}, lang = x.iso_639_1 === undefined ? null : x.iso_639_1;
+        if (lang !== langs[l] || !/\.png$/.test(x.file_path || '')) continue;
+        var v = (x.vote_average || 0) + (x.vote_count || 0) / 1000;
+        if (v > score) { score = v; best = x.file_path; }
+      }
+      if (best) return best;
+    }
+    return null;
+  }
+
+  /* A textless backdrop (the shelf puts its own title on it), the best voted; else the default one. */
+  function backdrop(d) {
+    var list = d && d.images && d.images.backdrops || [], best = null, score = -1;
+    for (var i = 0; i < list.length; i++) {
+      var x = list[i] || {};
+      if (x.iso_639_1 !== null && x.iso_639_1 !== undefined) continue;
+      var v = (x.vote_average || 0) + (x.vote_count || 0) / 1000;
+      if (v > score && x.file_path) { score = v; best = x.file_path; }
+    }
+    if (!best) best = d && d.backdrop_path;
+    return blank(best) || best === 'null' ? null : best;
+  }
+
+  /* The plot cut at a sentence, else a word, near max characters. */
+  function shortPlot(overview, max) {
+    if (overview === null || overview === undefined) return '';
+    var s = String(overview).replace(/\s+/g, ' ').replace(/^ | $/g, '');
+    if (s.length <= max) return s;
+    var cut = s.lastIndexOf('. ', max);
+    if (cut > Math.floor(max / 2)) return s.substring(0, cut + 1);
+    cut = s.lastIndexOf(' ', max);
+    return (cut > 0 ? s.substring(0, cut) : s.substring(0, max)) + '…';
+  }
+
+  /* "2024 · Crime · 2 stagioni · ★ 7,8": first year, first genre, seasons or Miniserie, rating once 20 voted. */
+  function meta(d) {
+    var parts = [], date = d && d.first_air_date;
+    if (/^\d{4}/.test(date || '')) parts.push(date.substring(0, 4));
+    var genre = d && d.genres && d.genres[0];
+    if (genre && !blank(genre.name)) parts.push(String(genre.name).replace(/^\s+|\s+$/g, ''));
+    if (d && d.type === 'Miniseries') parts.push('Miniserie');
+    else if (d && d.number_of_seasons > 0) parts.push(d.number_of_seasons === 1 ? '1 stagione' : d.number_of_seasons + ' stagioni');
+    if (d && d.vote_count >= 20 && d.vote_average > 0) parts.push('★ ' + d.vote_average.toFixed(1).replace('.', ','));
+    return parts.length ? parts.join(' · ') : null;
+  }
+
+  /* What the shelf keeps of a TMDB details reply (the rest is never stored). */
+  function summary(d) {
+    return {title: d.name || d.original_name || '', backdrop: backdrop(d), logo: logo(d),
+      plot: shortPlot(d.overview, 220), meta: meta(d)};
+  }
+
+  /* A logo drawn for light backgrounds (black lettering): most solid pixels dark, and not a solid plate.
+     rgba: the RGBA bytes of the logo (canvas getImageData). Same rule as the Metz (ContentShelf.darkLogo). */
+  function darkLogo(rgba) {
+    var solid = 0, dark = 0, pixels = Math.floor(rgba.length / 4);
+    for (var i = 0; i < pixels * 4; i += 4) {
+      if (rgba[i + 3] < 128) continue;
+      solid++;
+      if (Math.max(rgba[i], rgba[i + 1], rgba[i + 2]) < 100) dark++;
+    }
+    return solid > 0 && solid < pixels * 0.7 && dark >= solid * 0.65;
+  }
+
+  return {plan: plan, serviceOf: serviceOf, seasonLabel: seasonLabel, topLine: topLine, novitaLine: novitaLine,
+    netflixParams: netflixParams, logo: logo, backdrop: backdrop, shortPlot: shortPlot, meta: meta, summary: summary,
+    darkLogo: darkLogo, NETFLIX_TOP: NETFLIX_TOP, NETFLIX_NEW: NETFLIX_NEW};
+}));

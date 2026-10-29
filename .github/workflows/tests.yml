@@ -1,7 +1,7 @@
 name: Tests
 on:
   push:
-    branches: [main, release/next]
+    branches: [main, release/next, salotto]   # fork lorenzoma97: the Casa branch
   pull_request:
   workflow_call:
     inputs:

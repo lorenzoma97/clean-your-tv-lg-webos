@@ -745,6 +745,7 @@
         updateAmbient(e.color);
       }(tiles[index]) : heroVisible && (heroVisible = false, heroTitle.style.opacity = "0");
       updateAmbient(tiles[index].color);
+      window.CasaShelf && CasaShelf.focus(tiles[index].app, row);   // fork lorenzoma97: the cinematic shelf
     }
   }
   function updateAmbient(rgb) {
@@ -768,6 +769,7 @@
     topButtons[focusedTopButton].classList.add("focused");
   }
   function setFocusZone(zone) {
+    window.CasaShelf && CasaShelf.zone(zone);   // fork lorenzoma97
     focusZone !== zone && ("top" === focusZone && topButtons[focusedTopButton].classList.remove("focused"), "grid" === focusZone && (tiles[focusedTile] && tiles[focusedTile].el.classList.remove("focused"), focusGlassVisible = false, focusGlass.style.opacity = "0"), focusZone = zone);
   }
   function updateClock() {
@@ -1004,5 +1006,6 @@
   animateTiles();
   focusZone = "none";
   focusTile(0);
+  window.HomeApp = {launch: launchApp};   // fork lorenzoma97: casa-shelf.js plays a title with the same launch
   window.RootLauncherRendered = true;
 }();

@@ -1,0 +1,81 @@
+// Fork lorenzoma97: the Casa shelf rules, the same cases as the Metz add-on's ShelfTest.
+const assert = require('node:assert/strict');
+const Casa = require('../../launcher/casa-core');
+
+assert.equal(Casa.seasonLabel('Real Men: Season 2'), 'Stagione 2');
+assert.equal(Casa.seasonLabel('Below: Limited Series'), 'Miniserie');
+assert.equal(Casa.seasonLabel('Money Heist: Part 3'), 'Parte 3');
+assert.equal(Casa.seasonLabel('Stranger Things: Volume 2'), 'Volume 2');
+assert.equal(Casa.seasonLabel(null), null);
+assert.equal(Casa.seasonLabel('null'), null);
+assert.equal(Casa.seasonLabel('Some Show'), null);
+
+assert.equal(Casa.topLine(1, 'Below: Limited Series'), 'Top 10 in Italia · n. 1 · Miniserie');
+assert.equal(Casa.topLine(7, null), 'Top 10 in Italia · n. 7');
+assert.equal(Casa.novitaLine('new_series', 1), 'Nuova serie');
+assert.equal(Casa.novitaLine('new_season', 4), 'Nuova stagione 4');
+
+assert.deepEqual(Casa.netflixParams('81652677'), {contentTarget: 'm=https://www.netflix.com/title/81652677&source_type=4'});
+assert.equal(Casa.netflixParams(null), null);
+assert.equal(Casa.netflixParams('81652677&source_type=0'), null, 'never splice anything but digits');
+
+// Plan: rank 8 is the same series as rank 2 (Maschi veri S1 and S2), and 101 is in both the Top 10 and Novita.
+const top = [];
+for (let i = 1; i <= 10; i++) top.push({rank: i, tmdb: i === 8 ? 102 : 100 + i, season: null, netflix_id: '5' + i});
+const plan = Casa.plan({
+  services: {netflix: {name: 'Netflix'}, prime: {name: 'Prime Video'}, infinity: {name: 'Mediaset Infinity'}},
+  top10_netflix: {items: top},
+  novita: {
+    netflix: [{tmdb: 101, kind: 'new_series', season: 1}, {tmdb: 900, kind: 'new_season', season: 3, nf: '77'},
+      {tmdb: 901, kind: 'new_series', season: 1}, {tmdb: 902, kind: 'new_series', season: 1},
+      {tmdb: 903, kind: 'new_series', season: 1}, {tmdb: 904, kind: 'new_series', season: 1}],
+    prime: [{tmdb: 300, kind: 'new_season', season: 2}], infinity: []
+  }
+});
+const nf = plan.netflix;
+assert.equal(nf.length, Casa.NETFLIX_TOP + Casa.NETFLIX_NEW);
+assert.equal(nf[0].tmdb, 101);
+assert.equal(nf[0].netflixId, '51');
+assert.equal(new Set(nf.map(e => e.tmdb)).size, nf.length, 'one entry per series');
+assert.equal(nf[Casa.NETFLIX_TOP].tmdb, 900, '101 is already in the Top 10: Novita starts at 900');
+assert.equal(nf[Casa.NETFLIX_TOP].line, 'Nuova stagione 3');
+assert.equal(nf[Casa.NETFLIX_TOP].netflixId, '77');
+assert.equal(nf[Casa.NETFLIX_TOP].tag, 'Nuova stagione 3');
+assert.equal(nf[0].top, 1);
+assert.equal(nf[0].tag, null);
+assert.equal(plan.prime.length, 1);
+assert.equal(plan.infinity, undefined, 'nothing to show: no entry, the tile keeps its own look');
+assert.equal(Casa.serviceOf('netflix'), 'netflix');
+assert.equal(Casa.serviceOf('amazon'), 'prime');
+assert.equal(Casa.serviceOf('youtube.leanback.v4'), null);
+
+// Logo: Italian first, never SVG; textless backdrop; plot cut at a sentence or a word.
+const d = {images: {logos: [
+  {file_path: '/en.png', iso_639_1: 'en', vote_average: 5.4},
+  {file_path: '/it.svg', iso_639_1: 'it', vote_average: 9},
+  {file_path: '/it.png', iso_639_1: 'it', vote_average: 5.1}],
+  backdrops: [{file_path: '/text.jpg', iso_639_1: 'en', vote_average: 9}, {file_path: '/clean.jpg', iso_639_1: null, vote_average: 5}]}};
+assert.equal(Casa.logo(d), '/it.png');
+assert.equal(Casa.logo({images: {logos: []}}), null);
+assert.equal(Casa.backdrop(d), '/clean.jpg');
+assert.equal(Casa.backdrop({backdrop_path: '/default.jpg'}), '/default.jpg');
+assert.equal(Casa.shortPlot('Breve.', 170), 'Breve.');
+assert.equal(Casa.shortPlot('Prima frase abbastanza lunga da contare. Seconda frase che non entra nel limite dei caratteri.', 60),
+  'Prima frase abbastanza lunga da contare.');
+assert.ok(Casa.shortPlot('parola '.repeat(40), 50).endsWith('…'));
+
+assert.equal(Casa.meta({first_air_date: '2024-03-01', genres: [{name: 'Crime'}, {name: 'Dramma'}],
+  number_of_seasons: 2, vote_average: 7.84, vote_count: 312}), '2024 · Crime · 2 stagioni · ★ 7,8');
+assert.equal(Casa.meta({first_air_date: '2025-01-09', type: 'Miniseries', number_of_seasons: 1,
+  vote_average: 9.5, vote_count: 4}), '2025 · Miniserie');
+assert.equal(Casa.meta({first_air_date: null, genres: []}), null);
+
+// Dark logos: black lettering turns white; a dark plate with light text, and red or yellow logos, stay.
+function px(list) { return Uint8ClampedArray.from(list.flatMap(p => [(p >> 16) & 255, (p >> 8) & 255, p & 255, (p >>> 24) & 255])); }
+const clear = 0x00000000, black = 0xFF101010, red = 0xFFE50914, yellow = 0xFFF5C518;
+assert.ok(Casa.darkLogo(px([black, black, black, yellow, clear, clear, clear, clear, clear, clear])));
+assert.ok(!Casa.darkLogo(px([red, red, red, clear, clear, clear, clear, clear, clear, clear])));
+assert.ok(!Casa.darkLogo(px([black, black, black, black, black, black, black, black, black, clear])), 'a plate');
+assert.ok(!Casa.darkLogo(px([clear, clear])));
+
+console.log('PASS Casa shelf rules');
