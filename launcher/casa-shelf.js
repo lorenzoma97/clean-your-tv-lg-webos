@@ -81,7 +81,10 @@
     try {
       var params = typeof raw === 'string' ? JSON.parse(raw) : raw;
       if (params && params.params) params = params.params;
-      if (params && /^[0-9a-f]{32}$/.test(params.tmdbKey || '')) localStorage.setItem(KEY_STORE, params.tmdbKey);
+      if (params && /^[0-9a-f]{32}$/.test(params.tmdbKey || '')) {
+        localStorage.setItem(KEY_STORE, params.tmdbKey);
+        shelves = {};   // titles asked for before the key came back empty
+      }
     } catch (_) { /* not ours */ }
   }
 
@@ -120,7 +123,7 @@
         details(entry.tmdb, function(s) {
           if (s && s.backdrop) out.push({order: i, entry: entry, title: s.title, backdrop: s.backdrop, logo: s.logo, plot: s.plot, meta: s.meta});
           out.sort(function(a, b) { return a.order - b.order; });
-          if (--pending === 0) shelves[svc] = out;
+          if (--pending === 0 && out.length) shelves[svc] = out;   // nothing yet (no key, offline): try again next time
           ready(out);
         });
       });
