@@ -379,6 +379,22 @@ body.casa-dim .item.dock.shown:not(.focused) { opacity: 0.6; }
 }
 .item.focused .card { transition: transform 200ms ease-out; }
 
+/* One row that slides (CONFIG.dockScroll): the apps out of view fade, a chevron at the band's edge says there are more. */
+.item.off { opacity: 0 !important; pointer-events: none; }
+#dockBand::before, #dockBand::after {
+  position: absolute;
+  top: 50%;
+  margin-top: -28px;
+  font-size: 44px;
+  line-height: 52px;
+  color: rgba(255, 255, 255, 0.6);
+  opacity: 0;
+  transition: opacity 300ms ease;
+}
+#dockBand::before { content: '\2039'; left: -30px; }
+#dockBand::after { content: '\203A'; right: -30px; }
+body.dock-more-left #dockBand::before, body.dock-more-right #dockBand::after { opacity: 1; }
+
 /* The dock's own tiles (casa-tiles.js) fill the card, whatever the colour sampling decided. */
 .card.art { background: #07080b !important; }
 .card.art img, .card.art.glyph img { display: block; top: 0; left: 0; width: 100%; height: 100%; transform: none; }

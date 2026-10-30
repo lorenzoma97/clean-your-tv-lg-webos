@@ -27,7 +27,7 @@
     } else {
       var legacy;
       try { legacy = JSON.parse(storage.getItem('tvhome.order')); } catch (_) {}
-      var first = legacy && legacy.dock === (config.dockApps || []).join(',') && Array.isArray(legacy.ids) ? legacy.ids : (config.dockApps || []).slice(0, config.columns || 4);
+      var first = legacy && legacy.dock === (config.dockApps || []).join(',') && Array.isArray(legacy.ids) ? legacy.ids : (config.dockApps || []).slice(0, config.dockScroll ? 1000 : config.columns || 4);
       ids = unique(first.concat(catalog.slice().sort(function(a,b) { return a.title.localeCompare(b.title); }).map(function(a) { return a.id; })));
     }
     function visible() { return ids.map(find).filter(function(a) { return a && hidden.indexOf(a.id) < 0; }); }

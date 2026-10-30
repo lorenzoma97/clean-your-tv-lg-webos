@@ -20,8 +20,12 @@
     ROW_GAP = 90,
     DOCK_PADDING = 28,
     DOCK_TOP = 680,
-    columnCount = Math.max(1, CONFIG.columns || 4),
-    columnWidth = GRID_WIDTH / columnCount,
+    // Fork lorenzoma97: with CONFIG.dockScroll every app stays on the one row, CONFIG.columns of them in view and the
+    // row sliding under the focus (discovery+, Spotify: one step right of RaiPlay). Tiles keep the size of CONFIG.columns.
+    visibleColumns = Math.max(1, CONFIG.columns || 4),
+    columnCount = CONFIG.dockScroll ? 1000 : visibleColumns,
+    columnWidth = GRID_WIDTH / visibleColumns,
+    dockStart = 0,
     // Leave CARD_GAP between an enlarged focus frame and its idle neighbour.
     CARD_WIDTH = Math.min(MAX_CARD_WIDTH, Math.floor((columnWidth - FOCUS_PADDING - CARD_GAP) / ((FOCUS_SCALE + 1) / 2))),
     CARD_HEIGHT = Math.round(CARD_WIDTH * MAX_CARD_HEIGHT / MAX_CARD_WIDTH),
@@ -233,6 +237,8 @@
   function cancelHold() {
     clearTimeout(okHoldTimer);
     okHoldTimer = null;
+    clearTimeout(okReleaseTimer);   // fork lorenzoma97
+    okReleaseTimer = null;
     clearTimeout(pointerTimer);
     pointerTimer = null;
     okPressed = false;
@@ -643,7 +649,7 @@
     return Math.floor(index / columnCount);
   }
   function tileLeft(index) {
-    return GRID_LEFT + index % columnCount * columnWidth + (columnWidth - CARD_WIDTH) / 2;
+    return GRID_LEFT + (index % columnCount - dockStart) * columnWidth + (columnWidth - CARD_WIDTH) / 2;
   }
   function tileTop(index) {
     var row = rowFor(index);
@@ -659,12 +665,22 @@
       e.el.classList.toggle("dock", 0 === rowFor(t));
     });
     var dockBand = getElement("dockBand"),
-      dockCount = Math.min(columnCount, tiles.length);
+      dockCount = Math.min(visibleColumns, tiles.length);
     dockBand.style.display = dockCount ? "block" : "none";
-    dockBand.style.left = tileLeft(0) - DOCK_PADDING + "px";
+    dockBand.style.left = tileLeft(dockStart) - DOCK_PADDING + "px";
     dockBand.style.top = DOCK_TOP + "px";
     dockBand.style.width = (dockCount - 1) * columnWidth + CARD_WIDTH + DOCK_PADDING * 2 + "px";
     dockBand.style.height = DOCK_HEIGHT + "px";
+    CONFIG.dockScroll && placeDock();
+  }
+  // Fork lorenzoma97: CONFIG.dockScroll, the apps in view; the others wait faded at either side.
+  function placeDock() {
+    tiles.forEach(function (e, t) {
+      e.el.style.left = tileLeft(t) + "px";
+      e.el.classList.toggle("off", t < dockStart || t >= dockStart + visibleColumns);
+    });
+    document.body.classList.toggle("dock-more-left", dockStart > 0);
+    document.body.classList.toggle("dock-more-right", tiles.length > dockStart + visibleColumns);
   }
   function animateTiles() {
     tiles.forEach(function (e, t) {
@@ -714,6 +730,13 @@
   function focusTile(index) {
     if (tiles.length) {
       index = Math.max(0, Math.min(index, tiles.length - 1));
+      if (CONFIG.dockScroll) {   // fork lorenzoma97: the row slides so the focused app is in view
+        var start = Math.max(0, Math.min(dockStart, index), index - visibleColumns + 1);
+        if (start !== dockStart) {
+          dockStart = start;
+          placeDock();
+        }
+      }
       setFocusZone("grid");
       tiles[focusedTile] && tiles[focusedTile].el.classList.remove("focused");
       focusedTile = index;
@@ -865,7 +888,9 @@
   }
   // Short OK launches on release; holding OK enters tile editing instead.
   var okPressed = false,
-    okHoldTimer = null;
+    okHoldTimer = null,
+    okReleaseTimer = null,
+    okUpAt = 0;   // fork lorenzoma97: when OK was last released (see keyup)
   function restoreFocus() {
     cancelHold();
     closePicker();
@@ -884,11 +909,19 @@
       okPressed = false;
       return;
     }
+    if (event.keyCode === KEY_OK) okUpAt = Date.now();
     if (event.keyCode === KEY_OK && (okPressed = false, okHoldTimer)) {
-      clearTimeout(okHoldTimer);
-      okHoldTimer = null;
-      var tile = tiles[focusedTile];
-      "grid" === focusZone && tile && !moveState && activateTile(tile);
+      // Fork lorenzoma97: some remotes send a held OK as keyup/keydown pairs. A release counts only when no new OK
+      // follows within 150 ms, so holding still reaches tile editing instead of opening the app.
+      clearTimeout(okReleaseTimer);
+      okReleaseTimer = setTimeout(function () {
+        okReleaseTimer = null;
+        if (!okHoldTimer) return;
+        clearTimeout(okHoldTimer);
+        okHoldTimer = null;
+        var tile = tiles[focusedTile];
+        "grid" === focusZone && tile && !moveState && activateTile(tile);
+      }, 150);
     }
   });
   document.addEventListener("keydown", function (event) {
@@ -913,6 +946,8 @@
             moveTile(Math.min(focusedTile + columnCount, tiles.length - 2));
           }
         } else if (key === KEY_OK) {
+          // Fork lorenzoma97: an OK right after a release is the held OK repeating, not the press that drops the tile.
+          if (Date.now() - okUpAt < 150) return event.preventDefault();
           finishMoving(true);
         } else {
           if (key !== KEY_BACK && 27 !== key) {
@@ -967,7 +1002,10 @@
         } else if (40 === key) {
           rowFor(focusedTile) < rowFor(lastIndex) && focusTile(Math.min(focusedTile + columnCount, lastIndex));
         } else if (key === KEY_OK) {
-          okHoldTimer = setTimeout(function () {
+          if (okReleaseTimer) {   // fork lorenzoma97: the same OK, still held (see keyup)
+            clearTimeout(okReleaseTimer);
+            okReleaseTimer = null;
+          } else okHoldTimer = setTimeout(function () {
             okHoldTimer = null;
             beginMoving(tiles[focusedTile]);
           }, 600);
