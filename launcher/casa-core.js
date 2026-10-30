@@ -113,14 +113,14 @@
     return blank(best) || best === 'null' ? null : best;
   }
 
-  /* The plot cut at a sentence (when one ends after 60 characters), else at a word, near max characters; no comma or
-     colon left before the ellipsis ("…tra polizia,…" read badly). */
+  /* The plot cut at a sentence (when one ends after 60 characters, or half of max for short cuts), else at a word, near
+     max characters; no comma or colon left before the ellipsis ("…tra polizia,…" read badly). Same rule as the Metz. */
   function shortPlot(overview, max) {
     if (overview === null || overview === undefined) return '';
     var s = String(overview).replace(/\s+/g, ' ').replace(/^ | $/g, '');
     if (s.length <= max) return s;
     var cut = Math.max(s.lastIndexOf('. ', max), s.lastIndexOf('! ', max), s.lastIndexOf('? ', max));
-    if (cut >= 60) return s.substring(0, cut + 1);
+    if (cut >= Math.min(60, Math.floor(max / 2))) return s.substring(0, cut + 1);
     cut = s.lastIndexOf(' ', max);
     return (cut > 0 ? s.substring(0, cut) : s.substring(0, max)).replace(/[\s,;:\u2013\u2014-]+$/, '') + '…';
   }
