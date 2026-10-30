@@ -116,4 +116,16 @@ assert.equal(Casa.skyFor(3).clouds, 0.9);
 assert.equal(Casa.skyFor(95).storm, 1);
 assert.equal(Casa.skyFor(0).rain, 0);
 
+// Every dock app has its own tile (casa-tiles.js), an SVG.
+const vm = require('node:vm');
+const fs = require('node:fs');
+const box = {window: {}};
+vm.runInNewContext(fs.readFileSync(require.resolve('../../launcher/config.js'), 'utf8'), box);
+vm.runInNewContext(fs.readFileSync(require.resolve('../../launcher/casa-tiles.js'), 'utf8'), box);
+for (const id of box.window.CONFIG.dockApps) {
+  const art = box.window.CASA_TILES[id];
+  assert.ok(art && art.startsWith('data:image/svg+xml;base64,'), 'tile for ' + id);
+  assert.ok(Buffer.from(art.split(',')[1], 'base64').toString('utf8').startsWith('<svg'), 'an SVG for ' + id);
+}
+
 console.log('PASS Casa shelf rules');

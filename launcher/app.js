@@ -626,7 +626,10 @@
       card.classList.add("missing-icon");
       card.setAttribute("data-initial", app.title.charAt(0));
     };
-    image.src = app.icon || "missing-icon";
+    // Fork lorenzoma97: the dock's own tiles (casa-tiles.js) in place of the apps' small icons.
+    var art = window.CASA_TILES && CASA_TILES[app.id];
+    if (art) card.classList.add("art");
+    image.src = art || app.icon || "missing-icon";
     card.appendChild(image);
     element.appendChild(card);
     var label = document.createElement("div");

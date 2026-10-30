@@ -11,7 +11,7 @@ SOURCE = Path(__file__).resolve().parents[1] / 'launcher'
 # Explicit public-source inventory: never recursively copy a developer workspace.
 FILES = (
     'appinfo.json', 'release-notes.js', 'system-updates.js', 'index.html', 'app.js', 'app-library.js', 'i18n.js', 'catalogs.js', 'i18n.css', 'style.css',
-    'casa.css', 'casa-core.js', 'casa-shelf.js', 'casa-home.js', 'casa-rest.js',
+    'casa.css', 'casa-core.js', 'casa-shelf.js', 'casa-home.js', 'casa-rest.js', 'casa-tiles.js',
     'brand-v2-icon.png', 'brand-v2-largeIcon.png', 'splash.png',
     'fonts/outfit-300.ttf', 'fonts/outfit-400.ttf', 'fonts/outfit-500.ttf', 'fonts/outfit-700.ttf', 'fonts/NotoSans.ttf', 'fonts/NotoSans-OFL.txt', 'fonts/NotoSansDevanagari.ttf', 'fonts/NotoSansDevanagari-OFL.txt', 'fonts/NotoSansKR.ttf', 'fonts/NotoSansKR-OFL.txt', 'fonts/NotoSansSC.ttf', 'fonts/NotoSansSC-OFL.txt', 'fonts/NotoSansTC.ttf', 'fonts/NotoSansTC-OFL.txt', 'fonts/OFL.txt',
 )
