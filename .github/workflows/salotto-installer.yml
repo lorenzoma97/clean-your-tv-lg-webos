@@ -42,5 +42,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: salotto-installer-windows
-          path: dist/cytv-windows-x64-desktop.zip
+          path: |
+            dist/cytv-windows-x64-desktop.zip
+            dist/cytv.exe
           if-no-files-found: error

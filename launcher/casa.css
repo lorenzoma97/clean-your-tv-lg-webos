@@ -285,16 +285,24 @@ body.casa-detail #casaDots, body.casa-scopri #casaDots { display: none; }
 
 /* ---- top bar: the clock panel and one capsule with the weather and three icon buttons ------------ */
 
+/* As on the Metz: no greeting, and the clock box as tall as the capsule and only as wide as its content
+   (the header's flex stretched it to the buttons on the TV). */
 #leftBlock {
-  padding: 16px 34px 14px 28px;
-  border-radius: 30px;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: 80px;
+  padding: 0 32px 0 28px;
+  border-radius: 48px;
   background: rgba(14, 15, 20, 0.46);
   border: 2px solid rgba(255, 255, 255, 0.1);
 }
-#greeting { font-size: 18px; }
-#clock { font-size: 80px; }
-.divider { height: 40px; margin: 0 24px 12px; }
-#date { margin-bottom: 14px; font-size: 22px; }
+#greeting { display: none; }
+#timeRow { display: flex; align-items: center; }
+#clock { font-size: 54px; line-height: 1; }
+.divider { height: 30px; margin: 0 22px; }
+#date { margin-bottom: 0; font-size: 22px; }
 
 #topButtons {
   align-items: center;

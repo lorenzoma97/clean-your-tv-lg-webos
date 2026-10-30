@@ -3,4 +3,7 @@
 window.CONFIG = {columns: 9,
   dockApps: ["netflix", "amazon", "com.disney.disneyplus-prod", "com.wbd.stream", "youtube.leanback.v4", "dazn", "com.atlas.tv", "it.rainet.raiplay"],
   hiddenApps: ["com.gathin.tvhome", "com.local.nativehome", "com.5412449.198417", "com.discovery.dplus.emea", "ui30", "spotify-beehive",
-    "com.twin.app.audiochannel", "webos.day", "com.miniclip.eightballpool", "com.palmdts.devmode"]};
+    "com.twin.app.audiochannel", "webos.day", "com.miniclip.eightballpool", "com.palmdts.devmode",
+    // LG's own apps seen on the TV: one "+" away like the rest.
+    "com.webos.app.discovery", "com.webos.app.browser", "com.webos.app.livetv", "com.webos.app.lglink-full",
+    "com.webos.app.storagemanager", "com.webos.app.sportsteamsettings"]};
