@@ -37,8 +37,9 @@
     return 'Top 10 in Italia · n. ' + rank + (s ? ' · ' + s : '');
   }
 
+  /* "Novità": out in the last 30 days (the Scopri row, "Scopri una nuova serie", is something else: older, unseen). */
   function novitaLine(kind, season) {
-    return kind === 'new_series' ? 'Nuova serie' : 'Nuova stagione ' + season;
+    return kind === 'new_series' ? 'Novità' : 'Nuova stagione ' + season;
   }
 
   /* service -> entries in shelf order, one per series: Netflix Top 10 then its Novita; other services their Novita. */
@@ -112,33 +113,102 @@
     return blank(best) || best === 'null' ? null : best;
   }
 
-  /* The plot cut at a sentence, else a word, near max characters. */
+  /* The plot cut at a sentence (when one ends after 60 characters), else at a word, near max characters; no comma or
+     colon left before the ellipsis ("…tra polizia,…" read badly). */
   function shortPlot(overview, max) {
     if (overview === null || overview === undefined) return '';
     var s = String(overview).replace(/\s+/g, ' ').replace(/^ | $/g, '');
     if (s.length <= max) return s;
-    var cut = s.lastIndexOf('. ', max);
-    if (cut > Math.floor(max / 2)) return s.substring(0, cut + 1);
+    var cut = Math.max(s.lastIndexOf('. ', max), s.lastIndexOf('! ', max), s.lastIndexOf('? ', max));
+    if (cut >= 60) return s.substring(0, cut + 1);
     cut = s.lastIndexOf(' ', max);
-    return (cut > 0 ? s.substring(0, cut) : s.substring(0, max)) + '…';
+    return (cut > 0 ? s.substring(0, cut) : s.substring(0, max)).replace(/[\s,;:\u2013\u2014-]+$/, '') + '…';
   }
 
-  /* "2024 · Crime · 2 stagioni · ★ 7,8": first year, first genre, seasons or Miniserie, rating once 20 voted. */
-  function meta(d) {
+  /* TMDB in it-IT leaves some genres in English. */
+  var GENRES = {'Action & Adventure': 'Azione e avventura', 'Sci-Fi & Fantasy': 'Fantascienza e fantasy',
+    'War & Politics': 'Guerra e politica', 'Kids': 'Per ragazzi', 'News': 'Attualità', 'Talk': 'Talk show',
+    'Soap': 'Soap opera', 'Reality': 'Reality', 'Drama': 'Dramma', 'Comedy': 'Commedia', 'Mystery': 'Mistero'};
+  function genreIt(name) {
+    var s = String(name).replace(/^\s+|\s+$/g, '');
+    return GENRES[s] || s;
+  }
+
+  /* "2024 · Crime · 2 stagioni · ★ 7,8": first year, first genre, seasons or Miniserie, rating once 20 voted.
+     short: genre and rating only, for a title whose badge already says the season (the year made Tulsa King look old). */
+  function meta(d, short) {
     var parts = [], date = d && d.first_air_date;
-    if (/^\d{4}/.test(date || '')) parts.push(date.substring(0, 4));
+    if (!short && /^\d{4}/.test(date || '')) parts.push(date.substring(0, 4));
     var genre = d && d.genres && d.genres[0];
-    if (genre && !blank(genre.name)) parts.push(String(genre.name).replace(/^\s+|\s+$/g, ''));
-    if (d && d.type === 'Miniseries') parts.push('Miniserie');
-    else if (d && d.number_of_seasons > 0) parts.push(d.number_of_seasons === 1 ? '1 stagione' : d.number_of_seasons + ' stagioni');
+    if (genre && !blank(genre.name)) parts.push(genreIt(genre.name));
+    if (!short && d && d.type === 'Miniseries') parts.push('Miniserie');
+    else if (!short && d && d.number_of_seasons > 0) parts.push(d.number_of_seasons === 1 ? '1 stagione' : d.number_of_seasons + ' stagioni');
     if (d && d.vote_count >= 20 && d.vote_average > 0) parts.push('★ ' + d.vote_average.toFixed(1).replace('.', ','));
     return parts.length ? parts.join(' · ') : null;
   }
 
-  /* What the shelf keeps of a TMDB details reply (the rest is never stored). */
+  // ---- when: a season's start, the next episode, the chart's week -----------------------------------
+
+  var MONTHS = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre',
+    'novembre', 'dicembre'];
+  var DAYS = ['dom', 'lun', 'mar', 'mer', 'gio', 'ven', 'sab'];
+  function day(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || '');
+    return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null;
+  }
+  function days(from, to) { return Math.round((to - new Date(from.getFullYear(), from.getMonth(), from.getDate())) / 864e5); }
+
+  /* "9 ottobre" ("9 ottobre 2025" in another year). */
+  function dateIt(iso, now) {
+    var d = day(iso);
+    if (!d) return null;
+    return d.getDate() + ' ' + MONTHS[d.getMonth()] + (d.getFullYear() !== now.getFullYear() ? ' ' + d.getFullYear() : '');
+  }
+
+  /* The Novità badge with its date: "Nuova stagione 3 · dal 9 ottobre", "Novità · dal 2 ottobre". */
+  function whenTag(entry, s, now) {
+    if (!entry || !entry.tag) return entry ? entry.tag : null;
+    var n = /(\d+)$/.exec(entry.tag), start = s && s.seasonsAir && s.seasonsAir[n ? n[1] : 1];
+    var label = start ? dateIt(start, now) : null;
+    return label ? entry.tag + ' · dal ' + label : entry.tag;
+  }
+
+  /* "Nuovo episodio ven 6 nov" when the next one airs within two weeks, else null. */
+  function nextEpisode(s, now) {
+    var d = day(s && s.next);
+    if (!d) return null;
+    var gap = days(now, d);
+    if (gap < 0 || gap > 14) return null;
+    if (gap === 0) return 'Nuovo episodio oggi';
+    if (gap === 1) return 'Nuovo episodio domani';
+    return 'Nuovo episodio ' + DAYS[d.getDay()] + ' ' + d.getDate() + ' ' + MONTHS[d.getMonth()].substring(0, 3);
+  }
+
+  /* The chart's week, from its last day: "12–18 ottobre" (or "28 settembre – 4 ottobre"). */
+  function weekIt(end) {
+    var e = day(end);
+    if (!e) return null;
+    var s = new Date(e.getFullYear(), e.getMonth(), e.getDate() - 6);
+    return s.getMonth() === e.getMonth() ? s.getDate() + '–' + e.getDate() + ' ' + MONTHS[e.getMonth()]
+      : s.getDate() + ' ' + MONTHS[s.getMonth()] + ' – ' + e.getDate() + ' ' + MONTHS[e.getMonth()];
+  }
+
+  /* A chart more than 16 days past its week says nothing about now: no "N. 1 in Italia" then. */
+  function staleWeek(end, now) {
+    var e = day(end);
+    return !e || days(e, now) > 16;
+  }
+
+  /* What the shelf keeps of a TMDB details reply (the rest is never stored): the plot long enough for the detail, the
+     seasons' first days and the next episode (the "when"), the logo's language (an English logo gets the Italian title). */
   function summary(d) {
-    return {title: d.name || d.original_name || '', backdrop: backdrop(d), logo: logo(d),
-      plot: shortPlot(d.overview, 220), meta: meta(d)};
+    var seasons = {}, list = d.seasons || [];
+    for (var i = 0; i < list.length; i++) if (list[i] && list[i].season_number > 0 && list[i].air_date) seasons[list[i].season_number] = list[i].air_date;
+    var lg = logo(d), lang = null, logos = d.images && d.images.logos || [];
+    for (var j = 0; j < logos.length; j++) if (logos[j] && logos[j].file_path === lg) lang = logos[j].iso_639_1 || null;
+    return {title: d.name || d.original_name || '', backdrop: backdrop(d), logo: lg, logoLang: lang,
+      original: d.original_name || '', plot: shortPlot(d.overview, 400), meta: meta(d), metaShort: meta(d, true),
+      seasonsAir: seasons, next: d.next_episode_to_air && d.next_episode_to_air.air_date || null};
   }
 
   /* A logo drawn for light backgrounds (black lettering): most solid pixels dark, and not a solid plate.
@@ -244,6 +314,7 @@
   return {dominant: dominant,
     plan: plan, serviceOf: serviceOf, appOf: appOf, pick: pick, tonight: tonight, poolItem: poolItem,
     poolService: poolService, describe: describe, air: air, seasonLabel: seasonLabel, topLine: topLine, novitaLine: novitaLine,
+    genreIt: genreIt, dateIt: dateIt, whenTag: whenTag, nextEpisode: nextEpisode, weekIt: weekIt, staleWeek: staleWeek,
     netflixParams: netflixParams, logo: logo, backdrop: backdrop, shortPlot: shortPlot, meta: meta, summary: summary,
     darkLogo: darkLogo, NETFLIX_TOP: NETFLIX_TOP, NETFLIX_NEW: NETFLIX_NEW};
 }));

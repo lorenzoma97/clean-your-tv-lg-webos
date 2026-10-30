@@ -32,7 +32,8 @@
   // ---- Home at rest: the Art Mode --------------------------------------------------------------
 
   var rest, artLayers, artIndex = Math.floor(Math.random() * ART.length), artLayer = 0, artTimer = null;
-  var clockEl, dateEl, wxEl, captionEl, cardsEl, idleTimer = null, resting = false, cardIndex = -1, picks = [], swallow = {};
+  var clockEl, dateEl, wxEl, captionEl, cardsEl, idleTimer = null, asleepTimer = null, resting = false, cardIndex = -1;
+  var picks = [], swallow = {};
 
   function el(tag, id, cls) {
     var e = document.createElement(tag);
@@ -79,11 +80,13 @@
     captionEl.style.transform = 'translate(' + -dx + 'px,' + -dy + 'px)';
   }
 
+  /* null: no reading worth showing (offline for hours, casa-home.js). */
   function drawWeather(w) {
-    weatherNow = w || weatherNow;
-    if (!wxEl || !weatherNow) return;
+    weatherNow = w === undefined ? weatherNow : w;
+    if (!wxEl) return;
+    if (!weatherNow) { wxEl.textContent = ''; return; }
     var d = Core.describe(weatherNow.code, weatherNow.day !== 0);
-    wxEl.textContent = Math.round(weatherNow.temp) + '°  ' + (d[0] ? d[0] + '  ·  ' : '') + 'Bologna';
+    wxEl.textContent = Math.round(weatherNow.temp) + '°' + (d[0] ? '  ·  ' + d[0] : '');
   }
 
   function drawCards() {
@@ -98,14 +101,22 @@
     for (var i = 0; i < cards.length; i++) cards[i].className = 'casa-card' + (i === cardIndex ? ' focused' : '');
   }
 
+  /* What was open (the detail, Scopri, the whole list) closes first: under the paintings its keys used to stay live, and
+     the OK that woke Home opened a title. Once the paintings cover it, Home sleeps: no rotation, no drawing. */
   function open() {
     if (resting) return;
     resting = true;
     cardIndex = -1;
+    if (window.CasaList) CasaList.close();
+    if (window.CasaHome) CasaHome.reset();
+    Shelf.reset();
+    Shelf.pause(true);
     document.body.classList.add('casa-rest');
     rest.style.display = '';
     rest.offsetWidth;
     rest.classList.add('shown');
+    clearTimeout(asleepTimer);
+    asleepTimer = setTimeout(function() { if (resting) document.body.classList.add('casa-asleep'); }, 800);
     drawWeather();
     drawCards();
     clock();
@@ -115,6 +126,9 @@
     if (!resting) return;
     resting = false;
     clearTimeout(artTimer);
+    clearTimeout(asleepTimer);
+    document.body.classList.remove('casa-asleep');
+    Shelf.pause(false);
     rest.classList.remove('shown');
     document.body.classList.remove('casa-rest');
     setTimeout(function() { if (!resting) rest.style.display = 'none'; }, 700);
@@ -127,7 +141,6 @@
 
   function onKey(event) {
     if (!resting) {
-      if (event.type === 'keydown') wake();
       if (event.type === 'keyup' && swallow[event.keyCode]) {
         swallow[event.keyCode] = false;
         event.preventDefault();
@@ -139,7 +152,7 @@
     if (key === 447 || key === 448 || key === 449 || key === 175 || key === 174 || key === 173) return;   // volume
     event.preventDefault();
     event.stopImmediatePropagation();
-    if (event.type !== 'keydown') return;
+    if (event.type !== 'keydown' || event.repeat) return;
     swallow[key] = true;
     if ((key === 37 || key === 39) && picks.length) {
       cardIndex = cardIndex < 0 ? 0 : Math.max(0, Math.min(picks.length - 1, cardIndex + (key === 39 ? 1 : -1)));
@@ -170,7 +183,10 @@
     rest.appendChild(top);
     var scopri = el('div', null, 'rest-scopri');
     var title = el('div', null, 'rest-scopri-title');
-    title.textContent = 'Stasera per te';
+    title.textContent = 'Scopri una nuova serie';
+    var hint = el('span', null, 'rest-hint');
+    hint.textContent = '◀ ▶ scegli   ·   OK apri   ·   altri tasti: Home';
+    title.appendChild(hint);
     cardsEl = el('div', null, 'rest-cards');
     scopri.appendChild(title);
     scopri.appendChild(cardsEl);
@@ -183,8 +199,11 @@
   build();
   setInterval(clock, 20000);
   ['mousemove', 'wheel'].forEach(function(type) { document.addEventListener(type, function() { if (resting) close(); else wake(); }, true); });
+  // Every key is activity, whoever handles it: on window in capture, before the shelf, Scopri and the list stop it.
+  window.addEventListener('keydown', function() { if (!resting) wake(); }, true);
   document.addEventListener('keydown', onKey, true);
   document.addEventListener('keyup', onKey, true);
+  document.addEventListener('webOSRelaunch', close);   // HOME: Home itself
   wake();
   window.CasaRest = {
     weather: function(w) { drawWeather(w); },

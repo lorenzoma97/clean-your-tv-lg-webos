@@ -166,7 +166,11 @@ const profiles = ['modern', 'no-inset', 'no-inset-or-es2015'];
         assert(await page.locator('#inputsPanel').evaluate(el => el.classList.contains('hidden')), 'Back still closes Inputs after inventory refresh');
         await page.locator('#tiles .add-app').dispatchEvent('click');
         await page.evaluate(() => inventoryRequests[inventoryRequests.length - 1].onservicecallback(JSON.stringify({returnValue:false})));
-        await page.locator('#appPicker [data-app-id="airplay"]').click();
+        // Fork lorenzoma97: in the "+" list a click opens the app; holding OK adds it.
+        await page.locator('#appPicker [data-app-id="airplay"]').focus();
+        await page.keyboard.down('Enter');
+        await page.waitForTimeout(700);
+        await page.keyboard.up('Enter');
         // Closing the picker exposes grid tiles under the pointer. Park it
         // outside the grid before selecting the app for remote-control tests.
         await page.mouse.move(0, 0);

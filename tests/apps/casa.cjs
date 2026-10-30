@@ -12,7 +12,7 @@ assert.equal(Casa.seasonLabel('Some Show'), null);
 
 assert.equal(Casa.topLine(1, 'Below: Limited Series'), 'Top 10 in Italia · n. 1 · Miniserie');
 assert.equal(Casa.topLine(7, null), 'Top 10 in Italia · n. 7');
-assert.equal(Casa.novitaLine('new_series', 1), 'Nuova serie');
+assert.equal(Casa.novitaLine('new_series', 1), 'Novità');
 assert.equal(Casa.novitaLine('new_season', 4), 'Nuova stagione 4');
 
 assert.deepEqual(Casa.netflixParams('81652677'), {contentTarget: 'm=https://www.netflix.com/title/81652677&source_type=4'});
@@ -63,12 +63,37 @@ assert.equal(Casa.shortPlot('Breve.', 170), 'Breve.');
 assert.equal(Casa.shortPlot('Prima frase abbastanza lunga da contare. Seconda frase che non entra nel limite dei caratteri.', 60),
   'Prima frase abbastanza lunga da contare.');
 assert.ok(Casa.shortPlot('parola '.repeat(40), 50).endsWith('…'));
+assert.equal(Casa.shortPlot('La famiglia McClusky è l’intermediario tra polizia, criminali e detenuti della città.', 52),
+  'La famiglia McClusky è l’intermediario tra polizia…', 'no comma before the ellipsis');
 
 assert.equal(Casa.meta({first_air_date: '2024-03-01', genres: [{name: 'Crime'}, {name: 'Dramma'}],
   number_of_seasons: 2, vote_average: 7.84, vote_count: 312}), '2024 · Crime · 2 stagioni · ★ 7,8');
 assert.equal(Casa.meta({first_air_date: '2025-01-09', type: 'Miniseries', number_of_seasons: 1,
   vote_average: 9.5, vote_count: 4}), '2025 · Miniserie');
 assert.equal(Casa.meta({first_air_date: null, genres: []}), null);
+assert.equal(Casa.meta({first_air_date: '2022-11-13', genres: [{name: 'Crime'}], number_of_seasons: 4, vote_average: 8.3, vote_count: 900}, true),
+  'Crime · ★ 8,3', 'with a season badge: no year, no seasons');
+assert.equal(Casa.genreIt('Action & Adventure'), 'Azione e avventura');
+assert.equal(Casa.genreIt('Crime'), 'Crime');
+
+// When: the Novità badge's date, the next episode within two weeks, the chart's week.
+const oct30 = new Date(2026, 9, 30);
+assert.equal(Casa.whenTag({tag: 'Nuova stagione 3'}, {seasonsAir: {3: '2026-10-09'}}, oct30), 'Nuova stagione 3 · dal 9 ottobre');
+assert.equal(Casa.whenTag({tag: 'Novità'}, {seasonsAir: {1: '2025-12-01'}}, oct30), 'Novità · dal 1 dicembre 2025');
+assert.equal(Casa.whenTag({tag: 'Novità'}, {seasonsAir: {}}, oct30), 'Novità');
+assert.equal(Casa.whenTag({tag: null}, {}, oct30), null);
+assert.equal(Casa.nextEpisode({next: '2026-11-06'}, oct30), 'Nuovo episodio ven 6 nov');
+assert.equal(Casa.nextEpisode({next: '2026-10-31'}, oct30), 'Nuovo episodio domani');
+assert.equal(Casa.nextEpisode({next: '2026-12-25'}, oct30), null);
+assert.equal(Casa.nextEpisode({next: null}, oct30), null);
+assert.equal(Casa.weekIt('2026-10-18'), '12–18 ottobre');
+assert.equal(Casa.weekIt('2026-10-04'), '28 settembre – 4 ottobre');
+assert.equal(Casa.staleWeek('2026-10-18', oct30), false);
+assert.equal(Casa.staleWeek('2026-10-04', oct30), true);
+const sum = Casa.summary({name: 'Treasure Island', original_name: 'Treasure Island', overview: 'x', seasons: [{season_number: 0, air_date: '2020-01-01'},
+  {season_number: 1, air_date: '2026-10-02'}], next_episode_to_air: {air_date: '2026-11-06'},
+  images: {logos: [{file_path: '/en.png', iso_639_1: 'en'}], backdrops: []}});
+assert.deepEqual([sum.seasonsAir, sum.next, sum.logoLang], [{1: '2026-10-02'}, '2026-11-06', 'en']);
 
 // Dark logos: black lettering turns white; a dark plate with light text, and red or yellow logos, stay.
 function px(list) { return Uint8ClampedArray.from(list.flatMap(p => [(p >> 16) & 255, (p >> 8) & 255, p & 255, (p >>> 24) & 255])); }

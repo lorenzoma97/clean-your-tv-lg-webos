@@ -54,6 +54,7 @@
     focusZone = "grid",
     focusedTile = 0,
     focusedTopButton = 0,
+    lastTopButton = 2,   // fork lorenzoma97: Up lands on the button used last (Settings at first)
     focusedInput = 0,
     inputRows = [],
     scrollOffset = 0,
@@ -159,6 +160,7 @@
     pickerButtons = [];
   var hideSelected = false,
     undoState = null,
+    undoTimer = null,
     undoBar,
     undoButton,
     pointerTimer = null,
@@ -185,12 +187,12 @@
     var el = document.createElement('div');
     el.className = 'item add-app';
     el.setAttribute('role', 'button');
-    el.setAttribute('aria-label', tr('Add app'));
+    el.setAttribute('aria-label', 'Altre app');
     el.innerHTML = ht('<div class="card"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 10v28M10 24h28"/></svg></div><div class="name">Add app</div>');
     var item = {
       add: true,
       app: {
-        title: tr('Add app')
+        title: 'Altre app'   // fork lorenzoma97: the "+" list opens apps now (and adds them on a hold)
       },
       el: el,
       color: [100, 110, 125]
@@ -345,11 +347,14 @@
     };
     undoBar.hidden = false;
     undoButton.focus();
+    clearTimeout(undoTimer);   // fork lorenzoma97: the bar goes by itself; an OK much later used to bring the app back
+    undoTimer = setTimeout(dismissUndo, 8000);
   }
   function dismissUndo() {
     if (!undoState) {
       return;
     }
+    clearTimeout(undoTimer);
     undoState = null;
     undoBar.hidden = true;
     focusTile(focusedTile);
@@ -371,6 +376,9 @@
     if (!pickerOpen) {
       return;
     }
+    clearTimeout(pickerHoldTimer);
+    clearTimeout(pickerReleaseTimer);
+    pickerHoldTimer = pickerReleaseTimer = null;
     pickerOpen = false;
     pickerGeneration++;
     picker.hidden = true;
@@ -402,26 +410,84 @@
       title.textContent = app.title;
       button.appendChild(icon);
       button.appendChild(title);
+      button.app = app;
       button.addEventListener('focus', function () {
         pickerIndex = pickerButtons.indexOf(button);
       });
+      // Fork lorenzoma97: OK (or a click) opens the app; holding OK (or the pointer) adds it to Home.
       button.addEventListener('click', function () {
-        try {
-          library.add(app.id);
-          closePicker();
-          rebuild(app.id);
-          showToast(tr('{app} added', {
-            app: app.title
-          }));
-        } catch (error) {
-          pickerStatus.textContent = tr("Couldn't save changes. Please try again.");
+        if (button.added) {
+          button.added = false;
+          return;
         }
+        closePicker();
+        launchApp(app.id, app.title);
+      });
+      button.addEventListener('mousedown', function () {
+        clearTimeout(pickerHoldTimer);
+        pickerHoldTimer = setTimeout(function () {
+          pickerHoldTimer = null;
+          button.added = true;
+          addFromPicker(app);
+        }, 600);
+      });
+      button.addEventListener('mouseleave', function () {
+        clearTimeout(pickerHoldTimer);
+        pickerHoldTimer = null;
       });
       pickerList.appendChild(button);
       pickerButtons.push(button);
     });
     pickerButtons.push(pickerClose);
     focusPicker(0);
+  }
+  function addFromPicker(app) {
+    try {
+      library.add(app.id);
+      closePicker();
+      rebuild(app.id);
+      showToast(tr('{app} added', {
+        app: app.title
+      }));
+    } catch (error) {
+      pickerStatus.textContent = tr("Couldn't save changes. Please try again.");
+    }
+  }
+  // Fork lorenzoma97: in the "+" list (Altre app) OK opens the app and holding OK adds it to Home; it used to add only,
+  // so opening the browser meant adding it, opening it and hiding it again. Held keys may repeat as keyup/keydown pairs.
+  var pickerHoldTimer = null,
+    pickerReleaseTimer = null;
+  function pickerPress() {
+    var button = pickerButtons[pickerIndex];
+    if (!button || !button.app) {
+      return button && button.click();
+    }
+    if (pickerReleaseTimer) {
+      clearTimeout(pickerReleaseTimer);
+      pickerReleaseTimer = null;
+      return;
+    }
+    clearTimeout(pickerHoldTimer);
+    pickerHoldTimer = setTimeout(function () {
+      pickerHoldTimer = null;
+      addFromPicker(button.app);
+    }, 600);
+  }
+  function pickerRelease() {
+    if (!pickerHoldTimer) {
+      return;
+    }
+    var button = pickerButtons[pickerIndex];
+    clearTimeout(pickerReleaseTimer);
+    pickerReleaseTimer = setTimeout(function () {
+      pickerReleaseTimer = null;
+      if (!pickerHoldTimer) {
+        return;
+      }
+      clearTimeout(pickerHoldTimer);
+      pickerHoldTimer = null;
+      button.click();
+    }, 150);
   }
   function openPicker() {
     if (moveState || pickerOpen) {
@@ -445,7 +511,7 @@
         library.refresh(apps);
       }
       var choices = library.available();
-      pickerStatus.textContent = apps === null ? tr('Showing the saved list. Could not refresh apps from the TV.') : choices.length ? tr('Choose an app to add to Home.') : tr('All installed apps are already on Home.');
+      pickerStatus.textContent = apps === null ? tr('Showing the saved list. Could not refresh apps from the TV.') : choices.length ? 'OK apre l\u2019app   \u00b7   Tieni premuto OK per aggiungerla a Home' : tr('All installed apps are already on Home.');
       renderPicker(choices);
     });
   }
@@ -461,7 +527,8 @@
     editHint = document.createElement('div');
     editHint.id = 'editHint';
     editHint.hidden = true;
-    editHint.textContent = tr('← ↑ ↓ → Move   ·   OK Place   ·   Back Cancel   ·   ↓ Below last row to hide');
+    editHint.textContent = CONFIG.dockScroll ? '\u25c0 \u25b6 Sposta   \u00b7   \u25bc Nascondi   \u00b7   OK Fissa   \u00b7   Indietro Annulla'
+      : tr('← ↑ ↓ → Move   ·   OK Place   ·   Back Cancel   ·   ↓ Below last row to hide');
     document.body.appendChild(editHint);
     undoBar = document.createElement('div');
     undoBar.id = 'appUndo';
@@ -486,6 +553,7 @@
     pickerList = getElement('appPickerList');
     pickerStatus = getElement('appPickerStatus');
     pickerClose = getElement('appPickerClose');
+    getElement('appPickerTitle').textContent = 'Altre app';   // fork lorenzoma97: it opens them now, and adds on a hold
     pickerClose.addEventListener('click', closePicker);
     document.addEventListener('mouseup', function () {
       clearTimeout(pointerTimer);
@@ -511,7 +579,7 @@
         if (key === 27 || key === 461) {
           closePicker();
         } else if (key === 13 && !event.repeat) {
-          pickerButtons[pickerIndex].click();
+          pickerPress();
         } else if (key === 38 || key === 37) {
           focusPicker(pickerIndex - 1);
         } else if (key === 40 || key === 39) {
@@ -543,6 +611,9 @@
       }
     }, true);
     document.addEventListener('keyup', function (event) {
+      if (pickerOpen && event.keyCode === 13) {
+        pickerRelease();
+      }
       if (pickerOpen || undoState || hideSelected) {
         cancelHold();
         event.stopImmediatePropagation();
@@ -648,8 +719,13 @@
   function rowFor(index) {
     return Math.floor(index / columnCount);
   }
+  // Fork lorenzoma97: a tile's place in the row (slotLeft) and on screen (tileLeft): with dockScroll the row slides as one
+  // (#tiles translateX), instead of every tile moving its own left (a layout per tile per frame).
+  function slotLeft(index) {
+    return GRID_LEFT + index % columnCount * columnWidth + (columnWidth - CARD_WIDTH) / 2;
+  }
   function tileLeft(index) {
-    return GRID_LEFT + (index % columnCount - dockStart) * columnWidth + (columnWidth - CARD_WIDTH) / 2;
+    return slotLeft(index) - dockStart * columnWidth;
   }
   function tileTop(index) {
     var row = rowFor(index);
@@ -660,7 +736,7 @@
       tilesContainer.appendChild(e.el);
       e.el.style.width = CARD_WIDTH + "px";
       e.el.querySelector(".card").style.height = CARD_HEIGHT + "px";
-      e.el.style.left = tileLeft(t) + "px";
+      e.el.style.left = slotLeft(t) + "px";
       e.el.style.top = tileTop(t) + "px";
       e.el.classList.toggle("dock", 0 === rowFor(t));
     });
@@ -675,8 +751,8 @@
   }
   // Fork lorenzoma97: CONFIG.dockScroll, the apps in view; the others wait faded at either side.
   function placeDock() {
+    tilesContainer.style.transform = "translateX(" + -dockStart * columnWidth + "px)";
     tiles.forEach(function (e, t) {
-      e.el.style.left = tileLeft(t) + "px";
       e.el.classList.toggle("off", t < dockStart || t >= dockStart + visibleColumns);
     });
     document.body.classList.toggle("dock-more-left", dockStart > 0);
@@ -792,6 +868,7 @@
     document.body.classList.remove("scrolled");
     topButtons[focusedTopButton].classList.remove("focused");
     focusedTopButton = Math.max(0, Math.min(index, topButtons.length - 1));
+    lastTopButton = focusedTopButton;
     topButtons[focusedTopButton].classList.add("focused");
   }
   function setFocusZone(zone) {
@@ -984,22 +1061,22 @@
           focusTile(0 === rowFor(focusedTile) ? focusedTile : 0);
         } else if (key === KEY_OK) {
           activateTopButton(focusedTopButton);
-        } else if (key !== KEY_BACK) {
+        } else if (key === KEY_BACK) {
+          focusTile(focusedTile);   // fork lorenzoma97: Back goes down a level, to the app Up came from
+        } else {
           return;
         }
       } else {
         var column = focusedTile % columnCount,
           lastIndex = tiles.length - 1;
         if (37 === key) {
-          column > 0 && focusTile(focusedTile - 1);
+          // Fork lorenzoma97: with dockScroll the row wraps: Left on the first app goes to the end ("+", Spotify in 2).
+          CONFIG.dockScroll && focusedTile === 0 ? focusTile(lastIndex) : column > 0 && focusTile(focusedTile - 1);
         } else if (39 === key) {
-          column < columnCount - 1 && focusedTile < lastIndex && focusTile(focusedTile + 1);
+          CONFIG.dockScroll && focusedTile === lastIndex ? focusTile(0) : column < columnCount - 1 && focusedTile < lastIndex && focusTile(focusedTile + 1);
         } else if (38 === key) {
-          0 === rowFor(focusedTile) ? focusTopButton((tileCenter = tileLeft(focusedTile) + CARD_WIDTH / 2, nearestButton = 0, nearestDistance = 1 / 0, topButtons.forEach(function (e, t) {
-            var n = e.getBoundingClientRect(),
-              a = Math.abs(n.left + n.width / 2 - tileCenter);
-            a < nearestDistance && (nearestDistance = a, nearestButton = t);
-          }), nearestButton)) : focusTile(focusedTile - columnCount);
+          // Fork lorenzoma97: on the dock, Up goes to the top bar's last used button, wherever the tile is.
+          0 === rowFor(focusedTile) ? focusTopButton(lastTopButton) : focusTile(focusedTile - columnCount);
         } else if (40 === key) {
           rowFor(focusedTile) < rowFor(lastIndex) && focusTile(Math.min(focusedTile + columnCount, lastIndex));
         } else if (key === KEY_OK) {
@@ -1010,7 +1087,9 @@
             okHoldTimer = null;
             beginMoving(tiles[focusedTile]);
           }, 600);
-        } else if (key !== KEY_BACK) {
+        } else if (key === KEY_BACK) {
+          CONFIG.dockScroll && focusTile(0);   // fork lorenzoma97: Back on the row: to its start, Netflix
+        } else {
           return;
         }
       }
@@ -1048,6 +1127,6 @@
   animateTiles();
   focusZone = "none";
   focusTile(0);
-  window.HomeApp = {launch: launchApp};   // fork lorenzoma97: casa-shelf.js plays a title with the same launch
+  window.HomeApp = {launch: launchApp, focusTop: function () { focusTopButton(lastTopButton); }};   // fork lorenzoma97: casa-shelf.js plays a title with the same launch
   window.RootLauncherRendered = true;
 }();

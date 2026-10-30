@@ -3,7 +3,7 @@
    and the focus. Effects the legacy CSS gate cannot check (blur, filters) are set from the scripts, only where the TV
    supports them. */
 
-/* ---- backdrop: title art, scrim, glow, vignette, grain ------------------------------------------ */
+/* ---- backdrop: title art, scrim (with the vignette), glow ------------------------------------- */
 
 #casaArt {
   position: absolute;
@@ -18,7 +18,8 @@
   background-size: cover;
   background-position: 70% 30%;
   opacity: 0;
-  transition: opacity 900ms ease, transform 9500ms linear;
+  /* A push-in that ends: the 9.5 s one never stopped, and the TV redrew every frame between two titles (-74%). */
+  transition: opacity 900ms ease, transform 1500ms cubic-bezier(0.2, 0.8, 0.3, 1);
 }
 
 #casaScrim {
@@ -27,9 +28,11 @@
   opacity: 0;
   transition: opacity 600ms ease;
   pointer-events: none;
+  /* The vignette lives here too: one full-screen layer instead of two (and the grain is gone: invisible at 3 m, -11%). */
   background:
+    radial-gradient(ellipse 1300px 820px at 50% 46%, rgba(0, 0, 0, 0) 58%, rgba(0, 0, 0, 0.5) 100%),
     linear-gradient(180deg, rgba(4, 4, 6, 0.62) 0%, rgba(4, 4, 6, 0) 22%),
-    linear-gradient(90deg, rgba(4, 4, 6, 0.9) 0%, rgba(4, 4, 6, 0.5) 36%, rgba(4, 4, 6, 0) 64%),
+    linear-gradient(90deg, rgba(4, 4, 6, 0.9) 0%, rgba(4, 4, 6, 0.6) 40%, rgba(4, 4, 6, 0) 68%),
     linear-gradient(180deg, rgba(4, 4, 6, 0) 40%, rgba(4, 4, 6, 0.82) 64%, #040406 84%);
 }
 body.casa-on #casaScrim { opacity: 1; }
@@ -41,22 +44,6 @@ body.casa-on .ambient { opacity: 0 !important; }
   top: 0; right: 0; bottom: 0; left: 0;
   opacity: 0;
   transition: opacity 1200ms ease;
-  pointer-events: none;
-}
-
-#casaVignette {
-  position: absolute;
-  top: 0; right: 0; bottom: 0; left: 0;
-  z-index: 9;
-  pointer-events: none;
-  background: radial-gradient(ellipse 1300px 820px at 50% 46%, rgba(0, 0, 0, 0) 58%, rgba(0, 0, 0, 0.5) 100%);
-}
-
-#casaGrain {
-  position: absolute;
-  top: 0; right: 0; bottom: 0; left: 0;
-  z-index: 10;
-  opacity: 0.045;
   pointer-events: none;
 }
 
@@ -78,10 +65,19 @@ body.casa-on #casaHero { opacity: 1; }
   from { opacity: 0; transform: translateY(22px); }
   to { opacity: 1; transform: none; }
 }
-#casaHero.enter #casaLogo, #casaHero.enter #casaName { animation: casa-rise 620ms cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+/* Two identical animations in turn (casa-shelf.js): switching restarts it without forcing a layout. */
+@keyframes casa-rise2 {
+  from { opacity: 0; transform: translateY(22px); }
+  to { opacity: 1; transform: none; }
+}
+#casaHero.enter #casaLogo, #casaHero.enter #casaName, #casaHero.enter #casaSub { animation: casa-rise 620ms cubic-bezier(0.2, 0.8, 0.3, 1) both; }
 #casaHero.enter #casaChips { animation: casa-rise 620ms 90ms cubic-bezier(0.2, 0.8, 0.3, 1) both; }
 #casaHero.enter #casaPlot { animation: casa-rise 620ms 170ms cubic-bezier(0.2, 0.8, 0.3, 1) both; }
 #casaHero.enter #casaActions { animation: casa-rise 620ms 250ms cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+#casaHero.enter2 #casaLogo, #casaHero.enter2 #casaName, #casaHero.enter2 #casaSub { animation: casa-rise2 620ms cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+#casaHero.enter2 #casaChips { animation: casa-rise2 620ms 90ms cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+#casaHero.enter2 #casaPlot { animation: casa-rise2 620ms 170ms cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+#casaHero.enter2 #casaActions { animation: casa-rise2 620ms 250ms cubic-bezier(0.2, 0.8, 0.3, 1) both; }
 
 /* Two-line logos (Mayor of Kingstown) stay clear of the clock; the detail has the room for the full size. */
 #casaLogo {
@@ -90,6 +86,15 @@ body.casa-on #casaHero { opacity: 1; }
   max-height: 150px;
 }
 body.casa-detail #casaLogo { max-height: 184px; }
+
+/* The Italian title under an English logo ("TREASURE ISLAND" / "L'isola del tesoro"). */
+#casaSub {
+  margin-top: 12px;
+  font-size: 26px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.86);
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.6);
+}
 
 #casaName {
   font-size: 92px;
@@ -137,6 +142,7 @@ body.casa-detail #casaLogo { max-height: 184px; }
 }
 .casa-chip.rank { padding-left: 0; background: transparent; border-color: transparent; font-size: 26px; text-transform: none; letter-spacing: 0; }
 .casa-chip.tag { background: #e5a00d; border-color: #e5a00d; color: #160f02; }
+.casa-chip.next { text-transform: none; letter-spacing: 0.01em; border-color: rgba(229, 160, 13, 0.7); }
 
 .casa-meta {
   margin-left: 4px;
@@ -149,11 +155,11 @@ body.casa-detail #casaLogo { max-height: 184px; }
 
 #casaPlot {
   margin-top: 22px;
-  max-width: 980px;
+  max-width: 880px;
   max-height: 84px;
   overflow: hidden;
   font-size: 29px;
-  font-weight: 300;
+  font-weight: 400;
   line-height: 42px;
   color: rgba(255, 255, 255, 0.86);
   text-shadow: 0 2px 18px rgba(0, 0, 0, 0.5);
@@ -175,6 +181,9 @@ body.casa-detail #casaLogo { max-height: 184px; }
   border: 2px solid rgba(255, 255, 255, 0.28);
   white-space: nowrap;
 }
+/* In Home it says what the keys do (OK opens the app, Up the titles): words, not a button that looks focused. */
+#casaWatch.hint { padding-left: 0; padding-right: 0; font-size: 22px; font-weight: 400; color: rgba(255, 255, 255, 0.72);
+  background: transparent; border-color: transparent; }
 
 #casaDots { margin-left: 30px; height: 8px; white-space: nowrap; }
 .casa-dot {
@@ -191,9 +200,20 @@ body.casa-detail #casaLogo { max-height: 184px; }
 
 /* ---- title cards (the detail, Scopri, Home at rest) ------------------------------------------- */
 
+#casaCardsLabel {
+  display: none;
+  margin: 34px 0 0 2px;
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #e5a00d;
+}
+body.casa-detail #casaCardsLabel { display: block; }
+
 #casaCards {
   display: none;
-  margin-top: 40px;
+  margin-top: 8px;
   margin-left: -8px;
   height: 178px;
   white-space: nowrap;
@@ -212,7 +232,17 @@ body.casa-detail #casaLogo { max-height: 184px; }
   background: rgba(255, 255, 255, 0.08) center / cover no-repeat;
   opacity: 0.6;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
-  transition: opacity 200ms ease, transform 260ms cubic-bezier(0.2, 0.8, 0.3, 1), box-shadow 260ms ease;
+  transition: opacity 200ms ease, transform 260ms cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+/* The focus ring fades in on its own layer: animating box-shadow repainted every card of the row. */
+.casa-card::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 4px #fff;
+  opacity: 0;
+  transition: opacity 200ms ease;
 }
 .casa-card::before {
   content: '';
@@ -221,12 +251,10 @@ body.casa-detail #casaLogo { max-height: 184px; }
   height: 70%;
   background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.78) 100%);
 }
-.casa-card.focused {
-  opacity: 1;
-  transform: scale(1.12);
-  box-shadow: 0 0 0 4px #fff, 0 18px 46px rgba(0, 0, 0, 0.6);
-}
-.casa-card.chosen { opacity: 1; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.6); }
+.casa-card.focused { opacity: 1; transform: scale(1.12); }
+.casa-card.focused::after { opacity: 1; }
+.casa-card.chosen { opacity: 1; }
+.casa-card.chosen::after { opacity: 0.5; box-shadow: inset 0 0 0 2px #fff; }
 
 .casa-card-logo {
   position: absolute;
@@ -248,27 +276,28 @@ body.casa-detail #casaLogo { max-height: 184px; }
   position: absolute;
   top: 10px;
   right: 10px;
-  padding: 3px 9px;
+  padding: 4px 10px;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 17px;
   font-weight: 700;
   letter-spacing: 0.04em;
   color: #fff;
   background: rgba(0, 0, 0, 0.6);
 }
 .casa-card-badge.netflix { background: #e50914; }
-.casa-card-badge.prime { background: #00a8e1; }
+.casa-card-badge.prime { background: #0073b0; }   /* white on #00a8e1 was 2.7:1 */
 .casa-card-badge.raiplay { background: #0b4fd6; }
 .casa-card-badge.infinity { background: #6a2bd8; }
 
 /* ---- the detail: Up from a dock app with titles ----------------------------------------------- */
 
 #viewport { transition: transform 460ms cubic-bezier(0.25, 0.8, 0.3, 1), opacity 320ms ease; }
-body.casa-detail #viewport { transform: translateY(300px); opacity: 0.4; }
+body.casa-detail #viewport { transform: translateY(300px); opacity: 0.15; }
 body.casa-detail #casaHero { bottom: 140px; }
 body.casa-detail #casaPlot { max-height: 168px; }
 body.casa-detail #casaCards { display: block; }
-body.casa-detail #casaWatch, body.casa-scopri #casaWatch { color: #000; background: #fff; border-color: #fff; font-size: 26px; padding: 13px 32px 13px 28px; }
+/* What OK does on the focused card; the card has the focus, so the button stays glass (white looked focused too). */
+body.casa-detail #casaWatch, body.casa-scopri #casaWatch { font-size: 26px; padding: 13px 32px 13px 28px; }
 body.casa-detail #casaDots, body.casa-scopri #casaDots { display: none; }
 
 /* ---- top bar: the clock panel and one capsule with the weather and three icon buttons ------------ */
@@ -335,30 +364,33 @@ body.casa-detail #casaDots, body.casa-scopri #casaDots { display: none; }
 .wx-temp { margin-left: 10px; font-size: 42px; font-weight: 300; line-height: 1; }
 .wx-lines { margin-left: 14px; }
 .wx-lines span { display: block; white-space: nowrap; }
-.wx-desc { font-size: 19px; font-weight: 400; color: rgba(255, 255, 255, 0.92); }
-.wx-more { margin-top: 3px; font-size: 15px; font-weight: 400; letter-spacing: 0.02em; color: rgba(255, 255, 255, 0.6); }
+.wx-desc { font-size: 24px; font-weight: 400; line-height: 29px; color: rgba(255, 255, 255, 0.92); }
+.wx-more { margin-top: 3px; font-size: 20px; font-weight: 400; line-height: 24px; letter-spacing: 0.02em; color: rgba(255, 255, 255, 0.75); }
 .wx-dot { display: inline-block; width: 8px; height: 8px; margin: 0 7px 1px 12px; border-radius: 4px; vertical-align: middle; }
-.wx-dot.good { background: #50c878; }
 .wx-dot.fair { background: #f2c94c; }
 .wx-dot.poor { background: #f2994a; }
 
 /* ---- the apps: nine small tiles, the light under the focus, the dimmer neighbours ----------------- */
 
 .card, .card::after { border-radius: 18px; }
-#glass { border-radius: 24px; transition: opacity 180ms ease, transform 520ms cubic-bezier(0.3, 1.35, 0.45, 1), box-shadow 900ms ease; }
-#dockBand { background: rgba(18, 18, 22, 0.58); transition: border-color 900ms ease; }
+/* The tint of the band and of the focus changes at once: animated, it repainted the band under its blur every frame. */
+#glass { border-radius: 24px; transition: opacity 180ms ease, transform 520ms cubic-bezier(0.3, 1.35, 0.45, 1); }
+#dockBand { background: rgba(18, 18, 22, 0.58); }
+#tiles { transition: transform 320ms cubic-bezier(0.25, 0.8, 0.3, 1); }
 
 #casaLight {
   position: absolute;
+  top: 0;
+  left: 0;
   width: 900px;
   height: 520px;
   opacity: 0;
   pointer-events: none;
   background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.13) 0%, rgba(255, 255, 255, 0.05) 38%, rgba(255, 255, 255, 0) 70%);
-  transition: left 420ms cubic-bezier(0.25, 0.8, 0.3, 1), top 420ms cubic-bezier(0.25, 0.8, 0.3, 1), opacity 300ms ease;
+  transition: transform 420ms cubic-bezier(0.25, 0.8, 0.3, 1), opacity 300ms ease;
 }
 
-body.casa-dim .item.dock.shown:not(.focused) { opacity: 0.6; }
+body.casa-dim .item.dock.shown:not(.focused) { opacity: 0.8; }
 .casa-sheen {
   position: absolute;
   top: 0; right: 0; bottom: 0; left: 0;
@@ -382,6 +414,12 @@ body.casa-dim .item.dock.shown:not(.focused) { opacity: 0.6; }
 #dockBand::before { content: '\2039'; left: -30px; }
 #dockBand::after { content: '\203A'; right: -30px; }
 body.dock-more-left #dockBand::before, body.dock-more-right #dockBand::after { opacity: 1; }
+/* Moving an app on one row: only Left and Right mean something. */
+.item.moving::after { content: '\25C0     \25B6'; }
+body.editing #casaScopri { opacity: 0.25; }
+
+/* The app's own name, for apps without titles: smaller than the launcher's 96 px over an empty half screen. */
+#hero { font-size: 64px; }
 
 /* The dock's own tiles (casa-tiles.js) fill the card, whatever the colour sampling decided. */
 .card.art { background: #07080b !important; }
@@ -391,7 +429,7 @@ body.dock-more-left #dockBand::before, body.dock-more-right #dockBand::after { o
 
 #casaScopri {
   position: absolute;
-  left: 112px;
+  left: 128px;
   transition: opacity 300ms ease, transform 460ms cubic-bezier(0.25, 0.8, 0.3, 1);
 }
 body.casa-detail #casaScopri { opacity: 0; }
@@ -410,6 +448,28 @@ body.casa-detail #casaScopri { opacity: 0; }
 body.casa-dim #casaScopriHead b { opacity: 0.8; }
 #casaScopriCards { margin-top: 2px; white-space: nowrap; }
 
+/* "Tutte le serie": the sixth card, the whole list (casa-list.js). */
+.casa-card.casa-all {
+  background: linear-gradient(135deg, rgba(229, 160, 13, 0.3), rgba(255, 255, 255, 0.06));
+  border: 2px solid rgba(229, 160, 13, 0.55);
+  box-sizing: border-box;
+}
+.casa-card.casa-all::before { display: none; }
+.casa-all-t { position: absolute; left: 20px; top: 34px; font-size: 26px; font-weight: 700; }
+.casa-all-s { position: absolute; left: 20px; top: 74px; font-size: 18px; color: rgba(255, 255, 255, 0.72); }
+.casa-all-go { position: absolute; right: 18px; top: 40px; font-size: 56px; line-height: 56px; color: #e5a00d; }
+
+#casaUndo {
+  display: inline-block;
+  margin: 18px 0 0 8px;
+  padding: 10px 22px;
+  border-radius: 24px;
+  font-size: 22px;
+  font-weight: 500;
+  color: #160f02;
+  background: rgba(229, 160, 13, 0.95);
+}
+
 #casaScopriActions {
   display: flex;
   margin: 34px 0 0 8px;
@@ -423,7 +483,7 @@ body.casa-scopri #casaScopriActions { opacity: 1; }
   margin-right: 14px;
   padding: 12px 26px;
   border-radius: 32px;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.86);
   background: rgba(255, 255, 255, 0.1);
@@ -437,6 +497,7 @@ body.casa-scopri #casaScopriActions { opacity: 1; }
 body.casa-scopri #viewport { transform: translateY(90px); opacity: 0; }
 body.casa-scopri #casaScopri { transform: translateY(-160px); }
 body.casa-scopri #casaScopriHead .s, body.casa-scopri #casaScopriHead b { opacity: 0; }
+body.casa-scopri-all #casaActions { visibility: hidden; }
 
 /* ---- Home at rest: the Art Mode -------------------------------------------------------------- */
 
@@ -455,15 +516,16 @@ body.casa-scopri #casaScopriHead .s, body.casa-scopri #casaScopriHead b { opacit
   background-size: cover;
   background-position: center;
   opacity: 0;
-  transition: opacity 2200ms ease, transform 46s linear;
+  /* The drift a step a second, not a frame every 16 ms for hours (-64% at rest); under a pixel a step, unseen. */
+  transition: opacity 2200ms ease, transform 46s steps(46);
 }
 .rest-shade {
   position: absolute;
   top: 0; right: 0; bottom: 0; left: 0;
   /* Darker where the words are: bright paintings (Bruegel's snow) would swallow the clock and the caption. */
   background:
-    radial-gradient(ellipse 1100px 520px at 0% 0%, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0) 100%),
-    radial-gradient(ellipse 900px 360px at 100% 0%, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0) 100%),
+    radial-gradient(ellipse 1250px 620px at 0% 0%, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0) 100%),
+    radial-gradient(ellipse 1000px 420px at 100% 0%, rgba(0, 0, 0, 0.65), rgba(0, 0, 0, 0) 100%),
     linear-gradient(0deg, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.35) 30%, rgba(0, 0, 0, 0) 48%);
   transition: background-color 2s ease;
 }
@@ -471,9 +533,10 @@ body.casa-scopri #casaScopriHead .s, body.casa-scopri #casaScopriHead b { opacit
 .rest-top { position: absolute; top: 70px; left: 120px; transition: transform 4s ease; }
 .rest-clock { font-size: 190px; font-weight: 300; line-height: 0.9; letter-spacing: -0.04em; text-shadow: 0 6px 40px rgba(0, 0, 0, 0.5); }
 .rest-date { margin-top: 18px; margin-left: 8px; font-size: 28px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255, 255, 255, 0.88); text-shadow: 0 2px 16px rgba(0, 0, 0, 0.7); }
-.rest-weather { margin-top: 10px; margin-left: 8px; font-size: 26px; font-weight: 300; color: rgba(255, 255, 255, 0.82); text-shadow: 0 2px 16px rgba(0, 0, 0, 0.7); }
+.rest-weather { margin-top: 10px; margin-left: 8px; font-size: 26px; font-weight: 400; color: rgba(255, 255, 255, 0.94); text-shadow: 0 2px 16px rgba(0, 0, 0, 0.7); }
 .rest-scopri { position: absolute; left: 112px; bottom: 74px; }
 .rest-scopri-title { margin-left: 8px; font-size: 20px; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; color: #e5a00d; text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8); }
+.rest-hint { margin-left: 22px; font-size: 18px; font-weight: 400; letter-spacing: 0.02em; text-transform: none; color: rgba(255, 255, 255, 0.7); }
 .rest-cards { white-space: nowrap; }
 .rest-cards .casa-card { width: 240px; height: 135px; opacity: 0.85; }
 /* Top right, level with the clock: the bottom belongs to the cards. */
@@ -488,4 +551,56 @@ body.casa-scopri #casaScopriHead .s, body.casa-scopri #casaScopriHead b { opacit
 }
 .rest-caption b { display: block; font-size: 24px; font-weight: 500; }
 .rest-caption span { display: block; margin-top: 6px; font-size: 20px; font-weight: 300; color: rgba(255, 255, 255, 0.8); }
-.rest-caption i { display: block; margin-top: 8px; font-size: 15px; font-style: normal; letter-spacing: 0.08em; color: rgba(255, 255, 255, 0.64); }
+.rest-caption i { display: block; margin-top: 8px; font-size: 18px; font-style: normal; letter-spacing: 0.06em; color: rgba(255, 255, 255, 0.8); }
+
+/* Under the paintings Home sleeps: nothing of it is drawn (casa-rest.js, once the fade is over). */
+body.casa-asleep > *:not(#casaRest) { visibility: hidden !important; }
+
+/* ---- the whole list: "Tutte le serie" (casa-list.js) ----------------------------------------- */
+
+body.casa-list #casaHero, body.casa-list #viewport, body.casa-list #casaScopri, body.casa-list header { opacity: 0 !important; }
+#casaList {
+  position: absolute;
+  top: 0; right: 0; bottom: 0; left: 0;
+  z-index: 30;
+  background: linear-gradient(180deg, rgba(4, 4, 6, 0.55) 0%, rgba(4, 4, 6, 0.2) 26%, rgba(4, 4, 6, 0.86) 46%, #040406 60%);
+}
+#casaListInfo { position: absolute; left: 136px; top: 60px; width: 1100px; opacity: 0; transition: opacity 200ms ease; }
+#casaListInfo.on { opacity: 1; }
+.casa-list-label { font-size: 22px; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; color: #e5a00d; }
+.casa-list-count { margin-left: 18px; letter-spacing: 0.02em; text-transform: none; color: rgba(255, 255, 255, 0.65); }
+.casa-list-logo { display: block; margin-top: 20px; max-width: 560px; max-height: 110px; }
+.casa-list-name { margin-top: 20px; font-size: 64px; font-weight: 700; line-height: 1; text-transform: uppercase; white-space: nowrap; overflow: hidden; }
+.casa-list-meta { margin-top: 18px; font-size: 24px; color: rgba(255, 255, 255, 0.85); white-space: nowrap; }
+.casa-list-meta .casa-card-badge { position: static; display: inline-block; margin-right: 14px; vertical-align: 2px; }
+.casa-list-plot { margin-top: 14px; max-width: 900px; max-height: 80px; overflow: hidden; font-size: 26px; line-height: 40px; color: rgba(255, 255, 255, 0.88); }
+#casaListChips { position: absolute; left: 128px; top: 418px; white-space: nowrap; transition: transform 300ms ease; }
+.casa-list-chip {
+  display: inline-block;
+  margin-right: 12px;
+  padding: 9px 20px;
+  border-radius: 26px;
+  font-size: 22px;
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(255, 255, 255, 0.12);
+}
+.casa-list-chip.on { color: #fff; border-color: #e5a00d; }
+.casa-list-chip.focused { color: #000; background: #fff; border-color: #fff; }
+#casaListGrid { position: absolute; left: 116px; right: 0; top: 486px; bottom: 0; overflow: hidden; }
+.casa-list-cells { position: absolute; left: 20px; top: 16px; transition: transform 300ms cubic-bezier(0.25, 0.8, 0.3, 1); }
+.casa-list-cells .casa-card { position: absolute; margin: 0; opacity: 0.8; }
+.casa-list-cells .casa-card.focused { opacity: 1; }
+.casa-card.casa-ph { background: rgba(255, 255, 255, 0.06); }
+.casa-card.casa-ph::before { display: none; }
+.casa-card.casa-gone { padding-top: 58px; box-sizing: border-box; text-align: center; font-size: 18px; color: rgba(255, 255, 255, 0.5); }
+.casa-card-seen {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 17px;
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.72);
+}

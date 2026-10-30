@@ -26,6 +26,8 @@ const base=process.env.PREVIEW_URL||'http://127.0.0.1:8876';
  await page.locator('#tiles .item').first().waitFor();
  assert.equal(await page.locator('#tiles .add-app').count(),1,'last tile adds apps');
  const ids=()=>page.locator('#tiles .item').evaluateAll(els=>els.map(e=>e.dataset.appId||'+'));
+ // Fork lorenzoma97: in the "+" list a click opens the app; holding the pointer (or OK) adds it to Home.
+ const holdAdd=async id=>{await page.locator('#appPicker [data-app-id="'+id+'"]').hover();await page.mouse.down();await page.waitForTimeout(700);await page.mouse.up();};
  assert.deepEqual(await ids(),['a','b','+']);
  await page.keyboard.down('Enter');await page.waitForTimeout(680);await page.keyboard.up('Enter');
  assert.equal(await page.locator('.moving').count(),1);
@@ -44,7 +46,7 @@ const base=process.env.PREVIEW_URL||'http://127.0.0.1:8876';
  await page.locator('#appPicker [data-app-id="c"]').waitFor();
  assert.equal(await page.locator('#appPicker [data-app-id="a"]').count(),0);
  await page.screenshot({path:'/tmp/home-app-picker.png'});
- await page.locator('#appPicker [data-app-id="c"]').click();assert.deepEqual(await ids(),['b','a','c','+']);
+ await holdAdd('c');assert.deepEqual(await ids(),['b','a','c','+']);
  await page.reload();await page.locator('.add-app').waitFor();assert.deepEqual(await ids(),['b','a','c','+']);
  // Releasing a pointer hold over another tile must not swallow the next placement click.
  await page.locator('[data-app-id="b"]').hover();await page.mouse.down();await page.waitForTimeout(680);
@@ -61,7 +63,7 @@ const base=process.env.PREVIEW_URL||'http://127.0.0.1:8876';
  await page.locator('#hideApp').click();
  assert.deepEqual(await ids(),['a','c','+']);
  await page.keyboard.press('Escape');await page.locator('.add-app').click();
- await page.locator('#appPicker [data-app-id="b"]').click();assert.deepEqual(await ids(),['a','c','b','+']);
+ await holdAdd('b');assert.deepEqual(await ids(),['a','c','b','+']);
  await page.locator('.add-app').click();await page.locator('#appPickerStatus').filter({hasText:'All installed'}).waitFor();
  await page.keyboard.press('Escape');
  await page.evaluate(()=>window.offline=true);await page.locator('.add-app').click();
@@ -75,7 +77,8 @@ const base=process.env.PREVIEW_URL||'http://127.0.0.1:8876';
  assert.deepEqual(await ids(),['+']);
  await page.reload();await page.locator('.add-app').waitFor();assert.deepEqual(await ids(),['+']);
  await page.keyboard.press('Enter');await page.locator('#appPicker [data-app-id="a"]').waitFor();
- await page.keyboard.press('Enter');assert.deepEqual(await ids(),['a','+']);
+ // Fork lorenzoma97: in the "+" list OK opens an app, holding OK adds it.
+ await page.keyboard.down('Enter');await page.waitForTimeout(680);await page.keyboard.up('Enter');assert.deepEqual(await ids(),['a','+']);
  // Releasing OK after the page loses focus must not launch or start editing.
  await page.keyboard.down('Enter');await page.evaluate(()=>window.dispatchEvent(new Event('blur')));
  await page.waitForTimeout(650);await page.keyboard.up('Enter');assert.equal(await page.locator('.moving').count(),0);
@@ -99,7 +102,7 @@ const base=process.env.PREVIEW_URL||'http://127.0.0.1:8876';
  await hideFirst();
  await page.evaluate(()=>{window.inventoryOverride=[{id:'b',title:'Beta'}];});
  await page.locator('.add-app').click();
- await page.locator('#appPicker [data-app-id="a"]').click();
+ await holdAdd('a');
  assert.deepEqual(await ids(),['b','c','a','+'],'plus restores hidden app without dropping other tiles');
  await page.reload();await page.locator('.add-app').waitFor();
  assert.deepEqual(await ids(),['b','c','a','+'],'restored layout persists');
