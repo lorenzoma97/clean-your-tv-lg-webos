@@ -121,6 +121,7 @@ const profiles = ['modern', 'no-inset', 'no-inset-or-es2015'];
         }), 'a populated DOM is insufficient: the viewport must not clip the cards');
         await page.keyboard.press('ArrowRight');
         await page.keyboard.press('Enter');
+        await page.waitForTimeout(250);   // fork lorenzoma97: a release counts after 150 ms (held OK repeating as pairs)
         assert.deepEqual(await page.evaluate(() => window.launches), ['test.1']);
         await page.keyboard.press('ArrowDown');
         await page.waitForTimeout(500);
@@ -221,6 +222,7 @@ const profiles = ['modern', 'no-inset', 'no-inset-or-es2015'];
             await page.keyboard.press('Escape');
             assert.equal(await page.locator('#tiles .moving').count(), 0, 'tile editing remains cancellable');
           } else {
+            await page.clock.runFor(200);   // fork lorenzoma97: the release counts after 150 ms
             assert.deepEqual(await page.evaluate(() => launches), ['test.0'], 'releasing OK still launches the selected app');
           }
         }

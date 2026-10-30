@@ -926,6 +926,7 @@
   });
   document.addEventListener("keydown", function (event) {
     var key = event.keyCode;
+    if (key !== KEY_OK) okUpAt = 0;   // fork lorenzoma97: another key in between, so the next OK is a new press
     if (key !== KEY_OK && okHoldTimer) {
       cancelHold();
     }
