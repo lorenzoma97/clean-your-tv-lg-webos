@@ -124,7 +124,7 @@
           if (s && s.backdrop) out.push({order: i, entry: entry, title: s.title, backdrop: s.backdrop, logo: s.logo, plot: s.plot, meta: s.meta});
           out.sort(function(a, b) { return a.order - b.order; });
           if (--pending === 0 && out.length) shelves[svc] = out;   // nothing yet (no key, offline): try again next time
-          ready(out);
+          ready(out.slice());   // a copy: focus() compares it with what is on screen, and out keeps growing
         });
       });
     });
@@ -382,6 +382,7 @@
       if (!shown) return show(0, true);
       index = items.indexOf(shown);   // a title earlier in the order arrived later: the one on screen stays
       text(shown);
+      schedule();   // the first title came alone: rotate now that there are others
     });
   }
 
