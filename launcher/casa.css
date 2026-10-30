@@ -3,18 +3,7 @@
    and the focus. Effects the legacy CSS gate cannot check (blur, filters) are set from the scripts, only where the TV
    supports them. */
 
-/* ---- backdrop: live sky, title art, scrim, glow, vignette, grain ------------------------------- */
-
-#casaSky {
-  position: absolute;
-  top: 0; left: 0;
-  width: 1920px;
-  height: 1080px;
-  opacity: 0;
-  transition: opacity 1200ms ease;
-  pointer-events: none;
-}
-body.casa-sky #casaSky { opacity: 1; }
+/* ---- backdrop: title art, scrim, glow, vignette, grain ------------------------------------------ */
 
 #casaArt {
   position: absolute;
@@ -44,9 +33,8 @@ body.casa-sky #casaSky { opacity: 1; }
     linear-gradient(180deg, rgba(4, 4, 6, 0) 40%, rgba(4, 4, 6, 0.82) 64%, #040406 84%);
 }
 body.casa-on #casaScrim { opacity: 1; }
-body.casa-sky #casaScrim { opacity: 0.7; }
 body.casa-on #hero { visibility: hidden; }
-body.casa-on .ambient, body.casa-sky .ambient { opacity: 0 !important; }
+body.casa-on .ambient { opacity: 0 !important; }
 
 .casa-glow {
   position: absolute;

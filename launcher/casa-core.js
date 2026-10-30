@@ -241,33 +241,7 @@
     return [Math.min(255, Math.round(c[0] * lift)), Math.min(255, Math.round(c[1] * lift)), Math.min(255, Math.round(c[2] * lift))];
   }
 
-  /* The sun's elevation in degrees at a moment and place (NOAA equations; negative: below the horizon). */
-  function sunElevation(date, lat, lon) {
-    var start = Date.UTC(date.getUTCFullYear(), 0, 1), day = Math.floor((date.getTime() - start) / 864e5) + 1;
-    var hour = date.getUTCHours() + date.getUTCMinutes() / 60;
-    var g = 2 * Math.PI / 365 * (day - 1 + (hour - 12) / 24);
-    var eq = 229.18 * (0.000075 + 0.001868 * Math.cos(g) - 0.032077 * Math.sin(g) - 0.014615 * Math.cos(2 * g) - 0.040849 * Math.sin(2 * g));
-    var decl = 0.006918 - 0.399912 * Math.cos(g) + 0.070257 * Math.sin(g) - 0.006758 * Math.cos(2 * g)
-      + 0.000907 * Math.sin(2 * g) - 0.002697 * Math.cos(3 * g) + 0.00148 * Math.sin(3 * g);
-    var ha = ((hour * 60 + eq + 4 * lon) / 4 - 180) * Math.PI / 180, la = lat * Math.PI / 180;
-    var cosZ = Math.sin(la) * Math.sin(decl) + Math.cos(la) * Math.cos(decl) * Math.cos(ha);
-    return 90 - Math.acos(Math.max(-1, Math.min(1, cosZ))) * 180 / Math.PI;
-  }
-
-  /* How the live sky looks for a WMO weather code: cloud cover 0..1, rain, snow, fog, storm. */
-  function skyFor(code) {
-    var s = {clouds: 0.15, rain: 0, snow: 0, fog: 0, storm: 0};
-    if (code === 1) s.clouds = 0.3;
-    else if (code === 2) s.clouds = 0.55;
-    else if (code === 3) s.clouds = 0.9;
-    else if (code === 45 || code === 48) { s.clouds = 0.8; s.fog = 1; }
-    else if (code >= 51 && code <= 67 || code >= 80 && code <= 82) { s.clouds = 0.9; s.rain = code >= 65 || code === 82 ? 1 : 0.6; }
-    else if (code >= 71 && code <= 77 || code === 85 || code === 86) { s.clouds = 0.85; s.snow = 1; }
-    else if (code >= 95) { s.clouds = 1; s.rain = 1; s.storm = 1; }
-    return s;
-  }
-
-  return {dominant: dominant, sunElevation: sunElevation, skyFor: skyFor,
+  return {dominant: dominant,
     plan: plan, serviceOf: serviceOf, appOf: appOf, pick: pick, tonight: tonight, poolItem: poolItem,
     poolService: poolService, describe: describe, air: air, seasonLabel: seasonLabel, topLine: topLine, novitaLine: novitaLine,
     netflixParams: netflixParams, logo: logo, backdrop: backdrop, shortPlot: shortPlot, meta: meta, summary: summary,

@@ -1,6 +1,4 @@
-/* Fork lorenzoma97, "Casa": Home at rest and the live sky.
-   - The sky over Bologna, drawn live (WebGL, at a third of the screen and stretched: soft and cheap), from the real
-     weather and the sun's height now: behind an app that has no titles to show.
+/* Fork lorenzoma97, "Casa": Home at rest.
    - After three minutes without a key: the Art Mode, public-domain paintings (Wikimedia Commons copies) drifting
      slowly, the time, the weather and tonight's five. Left/Right and OK on the cards, any other key wakes Home.
      The caption and the clock move a little every minute and the night is dimmer, for the OLED panel.
@@ -9,7 +7,7 @@
   'use strict';
   var Core = window.CasaCore, Shelf = window.CasaShelf, demo = window.CASA_DEMO || null;
   if (!Core || !Shelf) return;
-  var IDLE_MS = 3 * 60 * 1000, ART_MS = 45 * 1000, LAT = 44.4949, LON = 11.3426;
+  var IDLE_MS = 3 * 60 * 1000, ART_MS = 45 * 1000;
   /* [1920 px copy on Wikimedia Commons, artist, title, date]: public-domain paintings, landscape first. */
   var ART = [
     ["https://upload.wikimedia.org/wikipedia/commons/thumb/7/7d/A_Sunday_on_La_Grande_Jatte%2C_Georges_Seurat%2C_1884.jpg/1920px-A_Sunday_on_La_Grande_Jatte%2C_Georges_Seurat%2C_1884.jpg", "Georges Seurat", "Una domenica pomeriggio sull'isola della Grande Jatte", "1884–86"],
@@ -29,95 +27,7 @@
     ["https://upload.wikimedia.org/wikipedia/commons/thumb/0/01/Vincent_van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg/1920px-Vincent_van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg", "Vincent van Gogh", "Notte stellata", "1889"]
   ];
 
-  // ---- the live sky ----------------------------------------------------------------------------
-
-  var SHADER = [
-    'precision mediump float;',
-    'uniform vec2 res; uniform float t, sun, clouds, rain, storm, fog;',
-    'float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }',
-    'float noise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);',
-    '  return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y); }',
-    'float fbm(vec2 p) { float v = 0.0, a = 0.5; for (int i = 0; i < 5; i++) { v += a * noise(p); p *= 2.03; a *= 0.5; } return v; }',
-    'void main() {',
-    '  vec2 uv = gl_FragCoord.xy / res;',
-    '  float day = smoothstep(-6.0, 8.0, sun), low = 1.0 - smoothstep(0.0, 14.0, abs(sun - 2.0));',
-    '  vec3 zen = mix(vec3(0.012, 0.02, 0.06), vec3(0.14, 0.34, 0.72), day);',
-    '  vec3 hor = mix(vec3(0.05, 0.07, 0.15), vec3(0.6, 0.76, 0.94), day);',
-    '  hor = mix(hor, vec3(1.0, 0.52, 0.28), low * (0.75 * day + 0.35));',
-    '  vec3 sky = mix(hor, zen, pow(uv.y, 0.8));',
-    '  sky = mix(sky, mix(vec3(0.07, 0.08, 0.1), vec3(0.52, 0.55, 0.6), day), clouds * 0.5 + storm * 0.3);',
-    '  vec2 cell = floor(gl_FragCoord.xy);',
-    '  sky += step(0.9975, hash(cell)) * (1.0 - day) * (1.0 - clouds) * (0.55 + 0.45 * sin(t * 1.7 + hash(cell + 3.0) * 40.0)) * uv.y;',
-    '  vec2 p = vec2(uv.x * 3.0 + t * 0.006, uv.y * 1.6);',
-    '  float c = fbm(p * 1.8 + fbm(p * 1.1 + t * 0.003));',
-    '  float cover = smoothstep(0.95 - clouds * 0.75, 1.25 - clouds * 0.6, c * 1.3) * smoothstep(0.0, 0.3, uv.y);',
-    '  vec3 cloud = mix(vec3(0.1, 0.11, 0.14), vec3(0.95, 0.95, 0.97), day * 0.9 + 0.05);',
-    '  cloud = mix(cloud, vec3(1.0, 0.66, 0.46), low * 0.55) * (1.0 - storm * 0.55);',
-    '  sky = mix(sky, cloud, cover * 0.92);',
-    '  sky = mix(sky, mix(vec3(0.09), vec3(0.74, 0.76, 0.79), day), fog * smoothstep(0.65, 0.0, uv.y) * 0.8);',
-    '  if (rain > 0.0) { vec2 r = vec2(uv.x * 140.0 + uv.y * 20.0, uv.y * 16.0 + t * 10.0);',
-    '    sky += step(0.988, hash(floor(r))) * fract(r.y) * rain * 0.22; }',
-    '  gl_FragColor = vec4(sky, 1.0);',
-    '}'
-  ].join('\n');
-
-  var skyCanvas, gl, uni = {}, skyOn = false, skyFrame = null, weatherNow = null, start = Date.now();
-
-  function makeSky() {
-    skyCanvas = document.createElement('canvas');
-    skyCanvas.id = 'casaSky';
-    skyCanvas.width = 640;
-    skyCanvas.height = 360;
-    try {
-      gl = skyCanvas.getContext('webgl') || skyCanvas.getContext('experimental-webgl');
-    } catch (_) { gl = null; }
-    if (!gl) return;   // no WebGL: the plain black background stays
-    var vs = gl.createShader(gl.VERTEX_SHADER), fs = gl.createShader(gl.FRAGMENT_SHADER), prog = gl.createProgram();
-    gl.shaderSource(vs, 'attribute vec2 a; void main() { gl_Position = vec4(a, 0.0, 1.0); }');
-    gl.shaderSource(fs, SHADER);
-    gl.compileShader(vs);
-    gl.compileShader(fs);
-    gl.attachShader(prog, vs);
-    gl.attachShader(prog, fs);
-    gl.linkProgram(prog);
-    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) { gl = null; return; }
-    gl.useProgram(prog);
-    var buffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
-    var a = gl.getAttribLocation(prog, 'a');
-    gl.enableVertexAttribArray(a);
-    gl.vertexAttribPointer(a, 2, gl.FLOAT, false, 0, 0);
-    ['res', 't', 'sun', 'clouds', 'rain', 'storm', 'fog'].forEach(function(n) { uni[n] = gl.getUniformLocation(prog, n); });
-    var art = document.getElementById('casaArt');
-    document.body.insertBefore(skyCanvas, art || document.getElementById('hero'));
-  }
-
-  var lastDraw = 0;
-  function drawSky(now) {
-    skyFrame = null;
-    if (!gl || !skyOn) return;
-    if (now - lastDraw > 33) {   // about 30 frames a second is plenty for clouds
-      lastDraw = now;
-      var s = Core.skyFor(weatherNow ? weatherNow.code : 1);
-      gl.viewport(0, 0, skyCanvas.width, skyCanvas.height);
-      gl.uniform2f(uni.res, skyCanvas.width, skyCanvas.height);
-      gl.uniform1f(uni.t, (Date.now() - start) / 1000);
-      gl.uniform1f(uni.sun, Core.sunElevation(new Date(), LAT, LON));
-      gl.uniform1f(uni.clouds, s.clouds);
-      gl.uniform1f(uni.rain, s.rain);
-      gl.uniform1f(uni.storm, s.storm);
-      gl.uniform1f(uni.fog, s.fog);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-    }
-    skyFrame = requestAnimationFrame(drawSky);
-  }
-
-  function sky(on) {
-    skyOn = !!on && !!gl;
-    document.body.classList.toggle('casa-sky', skyOn);
-    if (skyOn && !skyFrame) skyFrame = requestAnimationFrame(drawSky);
-  }
+  var weatherNow = null;
 
   // ---- Home at rest: the Art Mode --------------------------------------------------------------
 
@@ -271,14 +181,12 @@
   }
 
   build();
-  makeSky();
   setInterval(clock, 20000);
   ['mousemove', 'wheel'].forEach(function(type) { document.addEventListener(type, function() { if (resting) close(); else wake(); }, true); });
   document.addEventListener('keydown', onKey, true);
   document.addEventListener('keyup', onKey, true);
   wake();
   window.CasaRest = {
-    sky: sky,
     weather: function(w) { drawWeather(w); },
     picks: function(list) { picks = list || []; if (resting) drawCards(); },
     open: open,

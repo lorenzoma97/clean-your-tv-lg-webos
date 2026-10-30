@@ -104,17 +104,11 @@ assert.equal(Casa.air(40), 'Aria discreta');
 assert.equal(Casa.air(61), 'Aria scadente');
 assert.equal(Casa.air(-1), null);
 
-// The glow colour of a picture, and the sun over Bologna.
+// The glow colour of a picture.
 const vivid = Casa.dominant(Uint8ClampedArray.from([20, 20, 20, 255, 200, 30, 40, 255, 30, 30, 30, 255]));
 assert.ok(vivid[0] > vivid[1] && vivid[0] > vivid[2], 'the red pixel wins over the greys');
 const grey = Casa.dominant(Uint8ClampedArray.from([60, 60, 60, 255, 70, 70, 70, 255]));
 assert.ok(Math.max(...grey) >= 149, 'a grey picture still gives a visible glow');
-const noonJune = Casa.sunElevation(new Date(Date.UTC(2026, 5, 21, 11, 15)), 44.4949, 11.3426);
-assert.ok(noonJune > 65 && noonJune < 72, 'solar noon at the June solstice: about 69 degrees, got ' + noonJune);
-assert.ok(Casa.sunElevation(new Date(Date.UTC(2026, 11, 21, 23, 0)), 44.4949, 11.3426) < -40, 'midnight in December');
-assert.equal(Casa.skyFor(3).clouds, 0.9);
-assert.equal(Casa.skyFor(95).storm, 1);
-assert.equal(Casa.skyFor(0).rain, 0);
 
 // Every dock app has its own tile (casa-tiles.js), an SVG.
 const vm = require('node:vm');

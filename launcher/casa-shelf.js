@@ -258,7 +258,6 @@
     index = (i + items.length) % items.length;
     var item = items[index];
     document.body.classList.add('casa-on');
-    if (window.CasaRest) CasaRest.sky(false);
     picture(item);
     clearTimeout(swapTimer);
     if (first || detail) {
@@ -283,7 +282,6 @@
     index = -1;
     document.body.classList.remove('casa-on');
     layers[0].style.opacity = layers[1].style.opacity = '0';
-    if (window.CasaRest) CasaRest.sky(true);   // an app without titles: the live sky over Bologna
   }
 
   // ---- detail ----------------------------------------------------------------------------------
