@@ -1075,8 +1075,13 @@
         } else if (39 === key) {
           CONFIG.dockScroll && focusedTile === lastIndex ? focusTile(0) : column < columnCount - 1 && focusedTile < lastIndex && focusTile(focusedTile + 1);
         } else if (38 === key) {
-          // Fork lorenzoma97: on the dock, Up goes to the top bar's last used button, wherever the tile is.
-          0 === rowFor(focusedTile) ? focusTopButton(lastTopButton) : focusTile(focusedTile - columnCount);
+          // Fork lorenzoma97: on the one sliding row (dockScroll), Up goes to the top bar's last used button, wherever the
+          // tile is; otherwise the nearest button, as upstream.
+          0 === rowFor(focusedTile) ? focusTopButton(CONFIG.dockScroll ? lastTopButton : (tileCenter = tileLeft(focusedTile) + CARD_WIDTH / 2, nearestButton = 0, nearestDistance = 1 / 0, topButtons.forEach(function (e, t) {
+            var n = e.getBoundingClientRect(),
+              a = Math.abs(n.left + n.width / 2 - tileCenter);
+            a < nearestDistance && (nearestDistance = a, nearestButton = t);
+          }), nearestButton)) : focusTile(focusedTile - columnCount);
         } else if (40 === key) {
           rowFor(focusedTile) < rowFor(lastIndex) && focusTile(Math.min(focusedTile + columnCount, lastIndex));
         } else if (key === KEY_OK) {
