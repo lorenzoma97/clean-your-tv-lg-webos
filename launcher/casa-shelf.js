@@ -1,6 +1,7 @@
 /* Fork lorenzoma97, "Casa": the cinematic shelf. On a dock app with titles (Netflix: Top 10 Italia then Novita; Prime,
-   RaiPlay, Infinity: Novita) a full-screen backdrop, the title's logo, badges and plot rotate every 8 s; Up opens the
-   detail, a row of title cards (Left/Right, OK plays, Down/Back returns). app.js calls focus() and zone().
+   RaiPlay, Infinity: Novita) a full-screen backdrop, the title's logo, badges and plot rotate every 8 s. Under the plot
+   two grey buttons, "Guarda su Netflix" and "Tutti i titoli": Up from the dock lights the first. "Tutti i titoli" opens
+   the detail, a row of title cards (Left/Right, OK plays, Up the button, Down/Back returns). app.js calls focus() and zone().
    Data: content.json (tv-casa-data) and TMDB details with the owner's key, kept in localStorage (only what is shown).
    The browser preview passes window.CASA_DEMO {content, details: {tmdb id: TMDB reply}} instead of the network. */
 (function() {
@@ -13,9 +14,12 @@
   var Core = window.CasaCore;
   var demo = window.CASA_DEMO || null;
 
-  var art, layers, scrim, hero, logoEl, subEl, nameEl, chipsEl, plotEl, watchEl, dotsEl, cardsLabel, cardsEl;
+  var art, layers, scrim, hero, logoEl, subEl, nameEl, chipsEl, plotEl, watchEl, allEl, dotsEl, cardsLabel, cardsEl;
   var layerIndex = 0, timer = null, swapTimer = null, pickTimer = null, enterFlip = false, paused = false;
   var app = null, row = -1, zone = 'none', items = [], index = -1, token = 0, detail = false, swallow = {};
+  var button = -1;   // the lit hero button: 0 "Guarda su ...", 1 "Tutti i titoli"; -1 none (the dock or the cards have the focus)
+  var PLAY_ICON = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M7 4.6v14.8l12.2-7.4z"/></svg>';
+  var ALL_ICON = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M3 4h8v7H3zM13 4h8v7h-8zM3 13h8v7H3zM13 13h8v7h-8z"/></svg>';
   var tileEl = null, lastRow = false, week = null;
   var shelves = {};   // service -> resolved items, kept for the session
   var cardRows = {};  // service -> {items, nodes}: the detail's cards, built once per app
@@ -41,10 +45,16 @@
     chipsEl = el('div', 'casaChips');
     plotEl = el('div', 'casaPlot');
     var actions = el('div', 'casaActions');
-    watchEl = el('span', 'casaWatch');
+    watchEl = el('span', 'casaWatch', 'casa-action');
+    watchEl.innerHTML = PLAY_ICON + '<span></span>';
+    allEl = el('span', 'casaAllTitles', 'casa-action');
+    allEl.innerHTML = ALL_ICON + '<span>Tutti i titoli</span>';
     dotsEl = el('span', 'casaDots');
     actions.appendChild(watchEl);
+    actions.appendChild(allEl);
     actions.appendChild(dotsEl);
+    watchEl.addEventListener('click', function() { play(); });
+    allEl.addEventListener('click', function() { if (items.length && !detail) { lightButton(-1); enterDetail(); } });
     cardsLabel = el('div', 'casaCardsLabel');
     cardsEl = el('div', 'casaCards');
     [logoEl, subEl, nameEl, chipsEl, plotEl, actions, cardsLabel, cardsEl].forEach(function(c) { hero.appendChild(c); });
@@ -267,10 +277,10 @@
       chipsEl.appendChild(m);
     }
     plotEl.textContent = Core.shortPlot(item.plot, detail ? DETAIL_PLOT : HOME_PLOT);
-    // In Home OK opens the app and Up the titles: the line says so; in the detail and in Scopri OK plays this title.
+    // "Tutti i titoli" only in Home: the detail shows them, and Scopri has its own buttons.
     var home = !detail && !document.body.classList.contains('casa-scopri');
-    watchEl.className = home ? 'hint' : '';
-    watchEl.textContent = home ? '▲  Scegli il titolo   ·   OK apre ' + (app ? app.title : '') : '▶  ' + verb(item);
+    watchEl.lastChild.textContent = verb(item);
+    allEl.style.display = home ? '' : 'none';
     dotsEl.innerHTML = '';
     for (var i = 0; i < Math.min(items.length, 12); i++) dotsEl.appendChild(el('span', null, 'casa-dot' + (i === index ? ' on' : '')));
     if (detail) cardsLabel.textContent = e.top && !Core.staleWeek(week, now) ? 'Top 10 serie in Italia · ' + Core.weekIt(week) : 'Novità';
@@ -320,7 +330,8 @@
 
   function schedule() {
     clearTimeout(timer);
-    if (!detail && !paused && items.length > 1) timer = setTimeout(function() {
+    // A lit button stops the rotation: OK plays the title on screen, not the next one.
+    if (!detail && !paused && button < 0 && items.length > 1) timer = setTimeout(function() {
       if (editing()) return schedule();   // moving an app: the titles wait
       show(index + 1);
     }, ROTATE_MS);
@@ -330,6 +341,7 @@
     token++;
     clearTimeout(timer);
     items = [];
+    lightButton(-1);
     index = -1;
     document.body.classList.remove('casa-on');
     layers[0].style.opacity = layers[1].style.opacity = '0';
@@ -372,7 +384,36 @@
     if (event && event.repeat) return;   // a held OK opens it once
     var item = items[index], params = item && Core.netflixParams(item.entry.netflixId);
     var svc = Core.serviceOf(app && app.id);
-    if (window.HomeApp) HomeApp.launch(app.id, app.title, svc === 'netflix' ? params : null);
+    if (window.HomeApp && app) HomeApp.launch(app.id, app.title, svc === 'netflix' ? params : null);
+  }
+
+  /* The hero's buttons: grey until lit, then white with a spring and a ring that opens out twice (casa.css). The dock
+     keeps app.js's focus underneath; body.casa-btns hides its highlight meanwhile. */
+  function lightButton(i) {
+    if (i === button) return;
+    button = i;
+    watchEl.className = 'casa-action' + (i === 0 ? ' focused' : '');
+    allEl.className = 'casa-action' + (i === 1 ? ' focused' : '');
+    document.body.classList.toggle('casa-btns', i >= 0);
+    if (i < 0) schedule(); else clearTimeout(timer);
+  }
+  function onButtonKey(event, key) {
+    if (key === 37 || key === 39) {
+      if (!detail) lightButton(key === 37 ? 0 : 1);
+    } else if (key === 13) {
+      if (event.repeat) return true;   // held: once, and not a hold on the dock app underneath
+      if (button === 0) play(event);
+      else { lightButton(-1); enterDetail(); }
+    } else if (key === 40 || key === 461 || key === 27) {
+      lightButton(-1);   // down a level: the cards in the detail, the dock in Home
+    } else if (key === 38) {
+      lightButton(-1);
+      if (detail) exitDetail();
+      if (window.HomeApp && HomeApp.focusTop) HomeApp.focusTop();
+    } else {
+      return false;   // volume and the rest pass through
+    }
+    return true;
   }
   function move(step) {
     var next = index + step;
@@ -389,11 +430,13 @@
     return document.body.classList.contains('editing') || !!(picker && !picker.hidden) || !!(undo && !undo.hidden);
   }
 
-  // Ahead of app.js (capture): in the detail every key is ours; on the dock, Up opens the detail.
+  // Ahead of app.js (capture): on a lit button or in the detail every key is ours; on the dock, Up lights the button.
   function onKey(event) {
     var key = event.keyCode, mine = false;
     if (document.body.classList.contains('casa-rest') || document.body.classList.contains('casa-list')) return;   // theirs
-    if (detail) {
+    if (button >= 0) {
+      mine = event.type === 'keydown' ? onButtonKey(event, key) : !!swallow[key];
+    } else if (detail) {
       mine = true;
       if (event.type === 'keydown') {
         if (key === 37) move(-1);
@@ -402,15 +445,14 @@
         else if (key === 40) exitDetail();
         else if (key === 461 || key === 27) {   // Back: to the first title, then out
           if (index > 0) { move(-index); } else exitDetail();
-        } else if (key === 38) {   // Up: on to the top bar, one column from the top (app.js)
-          exitDetail();
-          if (window.HomeApp && HomeApp.focusTop) HomeApp.focusTop();
+        } else if (key === 38) {   // Up: the button over the cards ("Guarda su ..."); from there on to the top bar
+          lightButton(0);
         } else mine = false;   // volume and the rest pass through
       }
     } else if (event.type === 'keydown' && key === 38 && zone === 'grid' && row === 0 && items.length && !editing()
         && !document.body.classList.contains('casa-scopri') && !document.body.classList.contains('casa-rest')) {
       mine = true;
-      enterDetail();
+      lightButton(0);
     } else if (event.type === 'keyup' && swallow[key]) {
       mine = true;
     }
@@ -450,6 +492,7 @@
 
   function setZone(z) {
     zone = z;
+    if (z !== 'grid') lightButton(-1);
     if (z !== 'grid' && detail) exitDetail();
     if (window.CasaHome) CasaHome.zone(z);
   }
@@ -469,6 +512,7 @@
   }
   /* HOME and the rest screen: back to the base state. */
   function reset() {
+    lightButton(-1);
     if (detail) exitDetail();
   }
   /* The rest screen: no rotation (and no decoding) under it. */

@@ -171,19 +171,13 @@ body.casa-detail #casaLogo { max-height: 184px; }
   margin-top: 30px;
 }
 
-#casaWatch {
-  padding: 11px 28px 11px 24px;
-  border-radius: 40px;
-  font-size: 23px;
-  font-weight: 500;
-  color: #fff;
-  background: rgba(255, 255, 255, 0.16);
-  border: 2px solid rgba(255, 255, 255, 0.28);
-  white-space: nowrap;
-}
-/* In Home it says what the keys do (OK opens the app, Up the titles): words, not a button that looks focused. */
-#casaWatch.hint { padding-left: 0; padding-right: 0; font-size: 22px; font-weight: 400; color: rgba(255, 255, 255, 0.72);
-  background: transparent; border-color: transparent; }
+/* Under the plot two grey buttons, "Guarda su ..." and "Tutti i titoli" (casa-shelf.js): Up from the dock lights the
+   first. The same buttons as Scopri's (.casa-action, below), a little larger. */
+#casaActions .casa-action { margin-right: 22px; padding: 13px 30px 13px 26px; font-size: 25px; white-space: nowrap; }
+/* A hero button lit: the dock app underneath loses its highlight (app.js still holds the focus there). */
+body.casa-btns .item.focused .card { transform: none; }
+body.casa-btns .item.focused .name { opacity: 0; }
+body.casa-btns #glass { opacity: 0 !important; }
 
 #casaDots { margin-left: 30px; height: 8px; white-space: nowrap; }
 .casa-dot {
@@ -296,8 +290,6 @@ body.casa-detail #viewport { transform: translateY(300px); opacity: 0.15; }
 body.casa-detail #casaHero { bottom: 140px; }
 body.casa-detail #casaPlot { max-height: 168px; }
 body.casa-detail #casaCards { display: block; }
-/* What OK does on the focused card; the card has the focus, so the button stays glass (white looked focused too). */
-body.casa-detail #casaWatch, body.casa-scopri #casaWatch { font-size: 26px; padding: 13px 32px 13px 28px; }
 body.casa-detail #casaDots, body.casa-scopri #casaDots { display: none; }
 
 /* ---- top bar: the clock panel and one capsule with the weather and three icon buttons ------------ */
@@ -478,6 +470,7 @@ body.casa-dim #casaScopriHead b { opacity: 0.8; }
 }
 body.casa-scopri #casaScopriActions { opacity: 1; }
 .casa-action {
+  position: relative;
   display: flex;
   align-items: center;
   margin-right: 14px;
@@ -488,10 +481,32 @@ body.casa-scopri #casaScopriActions { opacity: 1; }
   color: rgba(255, 255, 255, 0.86);
   background: rgba(255, 255, 255, 0.1);
   border: 2px solid rgba(255, 255, 255, 0.14);
-  transition: background 160ms ease, color 160ms ease, transform 200ms ease;
+  transition: background 160ms ease, color 160ms ease, transform 260ms cubic-bezier(0.34, 1.6, 0.5, 1);
 }
 .casa-action svg { width: 24px; height: 24px; margin-right: 10px; }
-.casa-action.focused { color: #000; background: #fff; border-color: #fff; transform: scale(1.05); }
+.casa-action.focused { color: #000; background: #fff; border-color: #fff; transform: scale(1.08); }
+/* Lit: the spring of the apps, a ring that opens out twice and stops (one that never stopped kept the TV drawing), and
+   the icon nudging forward once. */
+.casa-action::after {
+  content: '';
+  position: absolute;
+  top: -2px; right: -2px; bottom: -2px; left: -2px;
+  border-radius: 34px;
+  border: 2px solid #fff;
+  opacity: 0;
+  pointer-events: none;
+}
+.casa-action.focused::after { animation: casa-ring 1000ms 140ms ease-out 2; }
+.casa-action.focused svg { animation: casa-nudge 520ms 80ms ease-out 1; }
+@keyframes casa-ring {
+  from { opacity: 0.75; transform: scale(1); }
+  to { opacity: 0; transform: scale(1.12, 1.45); }
+}
+@keyframes casa-nudge {
+  0% { transform: none; }
+  45% { transform: translateX(5px); }
+  100% { transform: none; }
+}
 
 /* In Scopri the apps fade away, the five move up into their place and the series fills the screen. */
 body.casa-scopri #viewport { transform: translateY(90px); opacity: 0; }
@@ -603,4 +618,26 @@ body.casa-list #casaHero, body.casa-list #viewport, body.casa-list #casaScopri, 
   font-size: 17px;
   font-weight: 700;
   background: rgba(0, 0, 0, 0.72);
+}
+
+/* ---- the opening card (casa-intro.js): over everything, out of the pointer's way --------------- */
+
+#casaIntro {
+  position: fixed;
+  top: 0; left: 0;
+  width: 1920px;
+  height: 1080px;
+  z-index: 10000;
+  pointer-events: none;
+  background: #000 center / cover no-repeat;
+  animation: casa-intro-in 320ms ease-out both;
+}
+#casaIntro.out { animation: casa-intro-out 450ms ease-in both; }
+@keyframes casa-intro-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes casa-intro-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
