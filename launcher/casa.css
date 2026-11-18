@@ -180,9 +180,11 @@ body.casa-detail #casaLogo { max-height: 184px; }
   pointer-events: auto;   /* the hero lets the pointer through; its buttons take the click */
 }
 
-/* Under the plot two grey buttons, "Guarda su ..." and "Tutti i titoli" (casa-shelf.js): Up from the dock lights the
-   first. The same buttons as Scopri's (.casa-action, below), a little larger. */
-#casaActions .casa-action { margin-right: 22px; padding: 13px 30px 13px 26px; font-size: 25px; white-space: nowrap; }
+/* Under the plot a row of grey buttons (casa-shelf.js): "Guarda su ...", "Trailer", "Da vedere", "Tutti i titoli"; Up
+   from the dock lights the first. A title of the rows under the apps has more of them (Già vista, Non oggi, Altre
+   cinque, Annulla): a little smaller there, to stay on one line. */
+#casaActions .casa-action { flex-shrink: 0; margin-right: 22px; padding: 13px 30px 13px 26px; font-size: 25px; white-space: nowrap; }
+body.casa-scopri #casaActions .casa-action { margin-right: 14px; padding: 12px 24px 12px 20px; font-size: 23px; }
 /* A hero button lit: the dock app underneath loses its highlight (app.js still holds the focus there). */
 body.casa-btns .item.focused .card { transform: none; }
 body.casa-btns .item.focused .name { opacity: 0; }
@@ -192,6 +194,8 @@ body.casa-btns .casa-card.focused { transform: none; }
 body.casa-btns .casa-card.focused::after { opacity: 0.5; box-shadow: inset 0 0 0 2px #fff; }
 
 #casaDots { margin-left: 30px; height: 8px; white-space: nowrap; }
+/* Past twelve titles: the place in the row, in digits. */
+#casaDots.count { height: auto; font-size: 21px; font-weight: 400; letter-spacing: 0.06em; color: rgba(255, 255, 255, 0.6); }
 .casa-dot {
   display: inline-block;
   width: 8px;
@@ -295,6 +299,45 @@ body.casa-detail #casaCardsLabel { display: block; }
 .casa-card-badge.raiplay { background: #0b4fd6; }
 .casa-card-badge.infinity { background: #6a2bd8; }
 .casa-card-badge.hbomax { background: #fff; color: #000; }
+/* A Scopri title that is in "Da vedere": a bookmark hanging from the card's top edge. */
+.casa-card-later { display: none; position: absolute; top: 0; left: 16px; width: 26px; height: 34px; color: #e5a00d; }
+.casa-card-later svg { display: block; width: 26px; height: 34px; }
+.casa-card.saved .casa-card-later { display: block; }
+
+/* ---- sport: a match or a race has no picture (casa-shelf.js) ------------------------------------ */
+
+/* On the shelf: the two crests where a picture's subject would be. */
+#casaEvent {
+  position: absolute;
+  top: 220px;
+  right: 170px;
+  display: flex;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 600ms ease;
+}
+.ev-big { width: 270px; height: 270px; margin-left: 70px; object-fit: contain; }
+.casa-chip.live { background: #e5342a; border-color: #e5342a; color: #fff; }
+
+/* As a card: the crests (or the competition's name), when, who plays, where it is shown. */
+.casa-card.casa-event { background: linear-gradient(135deg, rgba(0, 122, 255, 0.34), rgba(255, 255, 255, 0.05)); }
+.casa-card.casa-event.champions { background: linear-gradient(135deg, rgba(44, 70, 220, 0.42), rgba(255, 255, 255, 0.05)); }
+.casa-card.casa-event.f1 { background: linear-gradient(135deg, rgba(225, 30, 20, 0.36), rgba(255, 255, 255, 0.05)); }
+.casa-card.casa-event::before { display: none; }
+.ev-top { position: absolute; left: 14px; top: 12px; height: 54px; display: flex; align-items: center; }
+.ev-crest { width: 50px; height: 50px; margin-right: 10px; object-fit: contain; }
+.ev-mark { font-size: 19px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+.ev-when { position: absolute; left: 14px; bottom: 38px; font-size: 22px; font-weight: 700; }
+.ev-when.live { color: #ff6a5e; }
+.ev-name {
+  position: absolute;
+  left: 14px; right: 14px; bottom: 10px;
+  font-size: 19px;
+  color: rgba(255, 255, 255, 0.86);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 /* ---- the detail: Up from a dock app with titles ----------------------------------------------- */
 
@@ -355,6 +398,33 @@ body.casa-detail #casaDots, body.casa-scopri #casaDots { display: none; }
 .pill.focused { background: #fff; color: #000; transform: none; }
 .pill.focused span { max-width: 340px; opacity: 1; margin-left: 12px; }
 .casa-frosted { background-color: rgba(18, 19, 24, 0.3); }
+
+/* The note between the clock and the capsule (casa-home.js): today's sport in turn, or the Developer Mode warning. */
+#casaNote {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: 80px;
+  max-width: 540px;
+  margin: 0 20px 2px;
+  padding: 0 28px 0 20px;
+  border-radius: 48px;
+  background: rgba(14, 15, 20, 0.46);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.note-art { flex-shrink: 0; }
+.note-art img { width: 40px; height: 40px; margin-right: 8px; vertical-align: middle; object-fit: contain; }
+.note-lines { min-width: 0; margin-left: 4px; }
+.note-lines span { display: block; overflow: hidden; text-overflow: ellipsis; }
+.note-t { font-size: 24px; font-weight: 500; line-height: 29px; }
+.note-s { margin-top: 3px; font-size: 19px; font-weight: 400; line-height: 24px; letter-spacing: 0.02em; color: rgba(255, 255, 255, 0.72); }
+#casaNote.live .note-s { color: #ff8a80; }
+#casaNote.warn { border-color: rgba(229, 160, 13, 0.75); }
+#casaNote.warn .note-t { color: #e5a00d; }
 
 #casaWeather {
   display: flex;
@@ -430,28 +500,32 @@ body.editing #casaScopri { opacity: 0.25; }
 .card.art { background: #07080b !important; }
 .card.art img, .card.art.glyph img { display: block; top: 0; left: 0; width: 100%; height: 100%; transform: none; }
 
-/* ---- "Scopri una nuova serie" -------------------------------------------------------------- */
+/* ---- the rows under the apps: "Da vedere", "Scopri una nuova serie", "Scopri un film" ------------ */
 
+/* At rest only the first row shows, under the apps; entered (casa-home.js), the focused row stands in the apps' place,
+   the ones before it are gone and the next one shows below. */
 #casaScopri {
   position: absolute;
   left: 128px;
   transition: opacity 300ms ease, transform 460ms cubic-bezier(0.25, 0.8, 0.3, 1);
 }
 body.casa-detail #casaScopri { opacity: 0; }
+.casa-row { height: 194px; margin-bottom: 20px; transition: opacity 300ms ease; }
+.casa-row.gone { opacity: 0; }
 
-#casaScopriHead {
+.casa-row-head {
   display: flex;
   align-items: center;
   margin-left: 8px;
   height: 30px;
   color: #e5a00d;
 }
-#casaScopriHead svg { width: 26px; height: 26px; margin-right: 12px; }
-#casaScopriHead .t { font-size: 20px; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; }
-#casaScopriHead .s { margin-left: 18px; font-size: 18px; color: rgba(255, 255, 255, 0.5); }
-#casaScopriHead b { margin-left: 16px; font-size: 15px; opacity: 0; transition: opacity 200ms ease; }
-body.casa-dim #casaScopriHead b { opacity: 0.8; }
-#casaScopriCards { margin-top: 2px; white-space: nowrap; }
+.casa-row-head svg { width: 26px; height: 26px; margin-right: 12px; }
+.casa-row-head .t { font-size: 20px; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; }
+.casa-row-head .s { margin-left: 18px; font-size: 18px; color: rgba(255, 255, 255, 0.5); }
+.casa-row-head b { margin-left: 16px; font-size: 15px; opacity: 0; transition: opacity 200ms ease; }
+body.casa-dim .casa-row-head b { opacity: 0.8; }
+.casa-row-cards { margin-top: 2px; white-space: nowrap; transition: transform 300ms cubic-bezier(0.25, 0.8, 0.3, 1); }
 
 /* "Tutte le serie": the sixth card, the whole list (casa-list.js). */
 .casa-card.casa-all {
@@ -464,13 +538,7 @@ body.casa-dim #casaScopriHead b { opacity: 0.8; }
 .casa-all-s { position: absolute; left: 20px; top: 74px; font-size: 18px; color: rgba(255, 255, 255, 0.72); }
 .casa-all-go { position: absolute; right: 18px; top: 40px; font-size: 56px; line-height: 56px; color: #e5a00d; }
 
-#casaScopriActions {
-  display: flex;
-  margin: 34px 0 0 8px;
-  opacity: 0;
-  transition: opacity 260ms ease;
-}
-body.casa-scopri #casaScopriActions { opacity: 1; }
+/* The grey buttons that light up: the hero's (casa-shelf.js). */
 .casa-action {
   position: relative;
   display: flex;
@@ -487,9 +555,12 @@ body.casa-scopri #casaScopriActions { opacity: 1; }
 }
 .casa-action svg { width: 24px; height: 24px; margin-right: 10px; }
 .casa-action.focused { color: #000; background: #fff; border-color: #fff; transform: scale(1.08); }
-/* "Annulla «title»": at the end of Scopri's row for a few seconds after Già vista, amber. */
+/* "In lista": the title is in "Da vedere" (OK takes it off). */
+.casa-action.on { color: #e5a00d; border-color: rgba(229, 160, 13, 0.6); }
+.casa-action.on.focused { color: #000; border-color: #fff; }
+/* "Annulla «title»": at the end of the buttons for a few seconds after Già vista or Togli dalla lista, amber. */
 .casa-action.casa-undo { color: #e5a00d; border-color: rgba(229, 160, 13, 0.6); }
-.casa-action.casa-undo span { max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.casa-action.casa-undo span { max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .casa-action.casa-undo.focused { color: #160f02; background: #e5a00d; border-color: #e5a00d; }
 /* Lit: the spring of the apps, a ring that opens out twice and stops (one that never stopped kept the TV drawing), and
    the icon nudging forward once. */
@@ -514,10 +585,10 @@ body.casa-scopri #casaScopriActions { opacity: 1; }
   100% { transform: none; }
 }
 
-/* In Scopri the apps fade away, the five move up into their place and the series fills the screen. */
+/* In the rows the apps fade away, the rows move up into their place (casa-home.js sets how far) and the focused title
+   fills the screen. */
 body.casa-scopri #viewport { transform: translateY(90px); opacity: 0; }
-body.casa-scopri #casaScopri { transform: translateY(-160px); }
-body.casa-scopri #casaScopriHead .s, body.casa-scopri #casaScopriHead b { opacity: 0; }
+body.casa-scopri .casa-row-head .s, body.casa-scopri .casa-row-head b { opacity: 0; }
 body.casa-scopri-all #casaActions { visibility: hidden; }
 
 /* ---- Home at rest: the Art Mode -------------------------------------------------------------- */
@@ -595,6 +666,13 @@ body.casa-list #casaHero, body.casa-list #viewport, body.casa-list #casaScopri, 
 .casa-list-meta { margin-top: 18px; font-size: 24px; color: rgba(255, 255, 255, 0.85); white-space: nowrap; }
 .casa-list-meta .casa-card-badge { position: static; display: inline-block; margin-right: 14px; vertical-align: 2px; }
 .casa-list-plot { margin-top: 14px; max-width: 900px; max-height: 80px; overflow: hidden; font-size: 26px; line-height: 40px; color: rgba(255, 255, 255, 0.88); }
+/* The focused title's buttons (casa-list.js): the hero's, smaller, between the plot and the genres. */
+#casaListActions { display: flex; align-items: center; height: 46px; margin-top: 10px; }
+#casaListActions .casa-action { flex-shrink: 0; margin-right: 12px; padding: 7px 20px 7px 16px; font-size: 21px; white-space: nowrap; }
+#casaListActions .casa-action svg { width: 21px; height: 21px; margin-right: 8px; }
+/* A button lit: the card it acts on is marked, not focused (two white things looked focused at once). */
+#casaList.lit .casa-list-cells .casa-card.focused { transform: none; }
+#casaList.lit .casa-list-cells .casa-card.focused::after { opacity: 0.5; box-shadow: inset 0 0 0 2px #fff; }
 #casaListChips { position: absolute; left: 128px; top: 418px; white-space: nowrap; transition: transform 300ms ease; }
 .casa-list-chip {
   display: inline-block;

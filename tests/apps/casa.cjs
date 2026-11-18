@@ -123,6 +123,112 @@ assert.deepEqual(Casa.tonight(pool, null, '2026-10-29', {}, 2, random, {1: true,
 assert.equal(Casa.describe(66, true)[0], 'Pioggia gelata');
 assert.equal(Casa.describe(65, true)[0], 'Pioggia forte');
 
+// Films: their own keys (TMDB numbers series and films apart), their line, their place on Netflix's shelf.
+assert.equal(Casa.keyOf(1399, false), 1399);
+assert.equal(Casa.keyOf(1399, true), 'm1399');
+assert.deepEqual([Casa.isMovie('m1399'), Casa.isMovie(1399), Casa.isMovie('1399')], [true, false, false]);
+assert.deepEqual([Casa.rawId('m1399'), Casa.rawId('1399'), Casa.rawId(1399)], [1399, 1399, 1399]);
+assert.equal(Casa.metaFilm({release_date: '2024-05-01', genres: [{name: 'Thriller'}], runtime: 112, vote_average: 7.12, vote_count: 900}),
+  '2024 · Thriller · 1 h 52 min · ★ 7,1');
+assert.equal(Casa.metaFilm({release_date: '2021-01-01', genres: [], runtime: 120, vote_count: 3}), '2021 · 2 h');
+assert.equal(Casa.metaFilm({runtime: 45}), '45 min');
+assert.equal(Casa.metaFilm({}), null);
+const videos = [
+  {site: 'YouTube', type: 'Teaser', key: 'teaser00001', iso_639_1: 'it', official: true},
+  {site: 'YouTube', type: 'Trailer', key: 'trailerEN01', iso_639_1: 'en', official: true},
+  {site: 'YouTube', type: 'Trailer', key: 'trailerIT01', iso_639_1: 'it', official: false},
+  {site: 'Vimeo', type: 'Trailer', key: 'vimeo000001', iso_639_1: 'it', official: true},
+  {site: 'YouTube', type: 'Featurette', key: 'feature0001', iso_639_1: 'it', official: true}];
+assert.equal(Casa.trailer({videos: {results: videos}}), 'trailerIT01', 'a trailer before a teaser, Italian before official English');
+assert.equal(Casa.trailer({videos: {results: videos.slice(0, 1)}}), 'teaser00001');
+assert.equal(Casa.trailer({videos: {results: [{site: 'YouTube', type: 'Trailer', key: 'bad key&x=1'}]}}), null);
+assert.equal(Casa.trailer({}), null);
+assert.deepEqual(Casa.youtubeParams('g2vsb6Id7fE'), {contentTarget: 'https://www.youtube.com/tv?v=g2vsb6Id7fE'});
+assert.equal(Casa.youtubeParams('a&b=c'), null, 'never splice anything but a video key');
+const film = Casa.summary({title: 'Io capitano', original_title: 'Io Capitano', release_date: '2023-09-07', runtime: 121, overview: 'x',
+  genres: [{name: 'Avventura'}], vote_average: 7.8, vote_count: 500, images: {logos: [], backdrops: []},
+  videos: {results: videos}}, true);
+assert.deepEqual([film.title, film.original, film.meta, film.metaShort, film.trailer],
+  ['Io capitano', 'Io Capitano', '2023 · Avventura · 2 h 1 min · ★ 7,8', '2023 · Avventura · 2 h 1 min · ★ 7,8', 'trailerIT01']);
+assert.equal(sum.trailer, null);
+const films = [];
+for (let i = 1; i <= 8; i++) films.push({rank: i, tmdb: i === 2 ? null : 100 + i, netflix_id: i === 1 ? '9' : null});
+const withFilms = Casa.plan({services: {netflix: {name: 'Netflix'}}, top10_netflix: {items: top},
+  top10_netflix_film: {items: films}, novita: {netflix: [{tmdb: 900, kind: 'new_series', season: 1}]}}).netflix;
+assert.equal(withFilms.length, Casa.NETFLIX_TOP + Casa.NETFLIX_FILM + 1);
+assert.deepEqual(withFilms[Casa.NETFLIX_TOP], {tmdb: 101, movie: true, line: 'Top 10 film in Italia · n. 1', netflixId: '9', top: 1, tag: null, season: null},
+  'film 101 stays though series 101 is in the chart: another title');
+assert.equal(withFilms[Casa.NETFLIX_TOP + 1].tmdb, 103, 'a film the chart could not match is skipped');
+assert.equal(withFilms[Casa.NETFLIX_TOP + Casa.NETFLIX_FILM].tmdb, 900, 'Novita after the films');
+assert.ok(!withFilms[0].movie);
+
+// Sport: what is on, when (in the viewer's time), and which events a place shows.
+const at = (d, h, m) => new Date(2026, 10, d, h, m).toISOString();
+const sport = {broadcast: {seriea: {name: 'Serie A', where: 'DAZN', app: 'dazn'}, champions: {name: 'Champions League', where: 'Sky · NOW', app: null},
+  f1: {name: 'Formula 1', where: 'Sky · NOW', app: null}},
+  events: [{comp: 'f1', start: at(23, 5, 0), title: 'GP di Las Vegas', session: 'Gara'},
+    {comp: 'seriea', start: at(22, 20, 45), home: 'Inter', away: 'Milan', it: true},
+    {comp: 'champions', start: at(22, 21, 0), home: 'Lille', away: 'Bayern Monaco', it: false},
+    {comp: 'seriea', start: at(21, 15, 0), home: 'Parma', away: 'Roma', it: true},
+    {comp: 'champions', start: at(22, 18, 45), home: 'Como', away: 'AEK Athens', it: true},
+    {comp: 'champions', start: 'not a date', home: 'x', away: 'y'}]};
+const sunday = new Date(2026, 10, 22, 21, 30);
+assert.equal(Casa.eventTitle(sport.events[1]), 'Inter – Milan');
+assert.equal(Casa.eventTitle(sport.events[0]), 'GP di Las Vegas');
+assert.equal(Casa.eventWhen(sport.events[1], sunday), 'In corso', 'started 45 minutes ago');
+assert.equal(Casa.eventWhen(sport.events[2], new Date(2026, 10, 22, 12, 0)), 'Oggi · 21:00');
+assert.equal(Casa.eventWhen(sport.events[0], sunday), 'Domani · 05:00');
+assert.equal(Casa.eventWhen(sport.events[0], new Date(2026, 10, 20, 9, 0)), 'lun 23 nov · 05:00');
+const names = list => list.map(Casa.eventTitle);
+assert.deepEqual(names(Casa.events(sport, sunday)), ['Inter – Milan', 'Lille – Bayern Monaco', 'GP di Las Vegas'],
+  'over two hours after its start a match is gone (Como at 18:45, Parma the day before); a bad date never shows');
+assert.deepEqual(names(Casa.events(sport, sunday, {today: true})), ['Inter – Milan', 'Lille – Bayern Monaco']);
+assert.deepEqual(names(Casa.events(sport, sunday, {app: 'dazn'})), ['Inter – Milan']);
+assert.deepEqual(names(Casa.events(sport, new Date(2026, 10, 22, 12, 0), {today: true, max: 2})), ['Como – AEK Athens', 'Inter – Milan'],
+  'no room for all: the Italian clubs first, then in order of time');
+assert.deepEqual(Casa.events(null, sunday), []);
+assert.equal(Casa.sportOf('dazn'), 'dazn');
+assert.equal(Casa.sportOf('netflix'), null);
+assert.equal(Casa.appOf('dazn'), 'dazn');
+
+// The marks (seen, Da vedere) of two TVs: the newer wins title by title, whichever way round they merge.
+const tvA = {seen: {10: 100, 20: 200, m5: 50, 60: 300}, later: {30: {t: 100, on: 1, s: 'netflix', nf: '8'}, 70: {t: 5, on: 1}}};
+const tvB = {seen: {10: -150, 20: 150, 40: 70, 60: -300}, later: {30: {t: 90, on: 0}, m7: {t: 10, on: 1, s: 'prime'}, 70: {t: 5, on: 0}}};
+const both = Casa.mergeState(tvA, tvB);
+assert.deepEqual(both.seen, {10: -150, 20: 200, 40: 70, 60: -300, m5: 50}, 'taken back later: not seen; at the same instant too');
+assert.deepEqual([both.later[30].on, both.later[30].nf, both.later.m7.s, both.later[70].on], [1, '8', 'prime', 0]);
+assert.equal(Casa.stateText(Casa.mergeState(tvB, tvA)), Casa.stateText(both), 'the same on both TVs');
+assert.equal(Casa.stateText(Casa.mergeState(both, tvA)), Casa.stateText(both), 'merging again changes nothing');
+assert.equal(Casa.stateText(Casa.mergeState(tvA, null)), Casa.stateText(tvA));
+assert.equal(Casa.stateText({}), '{"seen":{},"later":{}}');
+assert.equal(Casa.stateText({seen: {m5: 50, 20: 200, 3: -1}, later: {m7: {t: 10, on: true, s: 'prime'}}}),
+  '{"seen":{"3":-1,"20":200,"m5":50},"later":{"m7":{"t":10,"on":1,"s":"prime","nf":null}}}');
+assert.deepEqual(Casa.mergeState({seen: {1: 'x', 2: 0, 3: 5}, later: {4: null, 5: {on: 1}}}, null), {seen: {3: 5}, later: {}}, 'junk is dropped');
+
+// What is read from the shared file (or from this TV's own copy) is cleaned first: a bad line must not stop the sharing.
+const dirty = {seen: {5: 100, m7: -200.4, abc: 300, '05': 400, 8: 'x', 9: 0, 10: 1e18, 11: NaN, __proto__: 5},
+  later: {5: {t: 100, on: 1, s: 'netflix', nf: 81234}, 6: null, 7: {t: 0, on: 1}, m8: {t: 50, on: 'yes', s: 'Prime Video', nf: '12&x=1'},
+    9: {t: 1e18, on: 1}, x: {t: 1, on: 1}}, extra: 1};
+assert.deepEqual(Casa.cleanState(dirty), {seen: {5: 100, m7: -200}, later: {5: {t: 100, on: 1, s: 'netflix', nf: '81234'},
+  m8: {t: 50, on: 1, s: null, nf: null}}}, 'title keys, whole sane times, plain services and ids; the rest is dropped');
+assert.deepEqual(Casa.cleanState(null), {seen: {}, later: {}});
+assert.deepEqual(Casa.cleanState({seen: 'x', later: [1]}), {seen: {}, later: {}});
+assert.equal(Casa.stateText(Casa.cleanState(dirty)), '{"seen":{"5":100,"m7":-200},"later":{"5":{"t":100,"on":1,"s":"netflix","nf":"81234"},"m8":{"t":50,"on":1,"s":null,"nf":null}}}');
+const ahead = Date.now() + 365 * 86400000;
+assert.deepEqual(Casa.cleanState({seen: {5: ahead}, later: {}}).seen, {5: ahead}, 'a date ahead of this clock is kept: the clock may be the wrong one');
+
+// Developer Mode: a warning under three days, when it ran out, after four failed renewals; none when the owner turned it off.
+const hour = 3600, state = last => ({enabled: true, last: last});
+assert.equal(Casa.devWarning(state({status: 'healthy', remainingSeconds: 900 * hour, checkedAt: 1000}), 1000), null);
+assert.equal(Casa.devWarning(state({status: 'healthy', remainingSeconds: 50 * hour, checkedAt: 0}), 20 * hour * 1000)[0], 'Developer Mode: 30 ore');
+assert.equal(Casa.devWarning(state({status: 'renewed', remainingSeconds: 60 * hour, checkedAt: 0}), 0)[0], 'Developer Mode: 2 giorni');
+assert.equal(Casa.devWarning(state({status: 'healthy', remainingSeconds: 2 * hour, checkedAt: 0}), 0.5 * hour * 1000)[0], 'Developer Mode: 1 ora');
+assert.equal(Casa.devWarning(state({status: 'expired'}), 0)[0], 'Developer Mode scaduta');
+assert.equal(Casa.devWarning(state({status: 'retry', failures: 4}), 0)[0], 'Developer Mode: non rinnovata');
+assert.equal(Casa.devWarning(state({status: 'retry', failures: 2}), 0), null);
+assert.equal(Casa.devWarning({enabled: false, last: {status: 'expired'}}, 0), null);
+assert.equal(Casa.devWarning(null, 0), null);
+
 // Weather words, as on the Metz.
 assert.deepEqual(Casa.describe(0, true), ['Sereno', 'sun']);
 assert.equal(Casa.describe(0, false)[1], 'moon');

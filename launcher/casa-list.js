@@ -1,15 +1,18 @@
-/* Fork lorenzoma97, "Casa": the whole Scopri list, from the "Tutte le serie" card after the five. Every series of the
-   pool on the owner's services (content.json pool: the best hundred first, then the others), all or by genre: the genres
-   on top, a grid of five a row under the focused series' picture and words. Arrows move, OK opens a series (Netflix on
-   the title itself) or a genre, Back returns to the five. Details and pictures only for the rows on screen (TMDB, kept by
-   casa-shelf.js); coming back from a series opened here returns to it, HOME closes the list. */
+/* Fork lorenzoma97, "Casa": the whole Scopri list, from the "Tutte le serie" (or "Tutti i film") card after the five.
+   Every title of the pool on the owner's services (content.json pool or pool_film: the best hundred first, then the
+   others), all or by genre: the genres on top, a grid of five a row under the focused title's picture and words. Arrows
+   move, OK on a genre shows it, OK on a title lights its buttons under the plot, as in the rows of Home: Guarda (Netflix
+   on the title itself), Da vedere, Già vista, Trailer (Left/Right, OK acts, Down or Back returns to the grid). Back on
+   the grid returns to the five. Details and pictures only for the rows on screen (TMDB, kept by casa-shelf.js); coming
+   back from a title opened here returns to it, HOME closes the list. */
 (function() {
   'use strict';
-  var Core = window.CasaCore, Shelf = window.CasaShelf;
-  if (!Core || !Shelf) return;
+  var Core = window.CasaCore, Shelf = window.CasaShelf, State = window.CasaState;
+  if (!Core || !Shelf || !State) return;
   var U = Shelf.util, COLS = 5, CELL_W = 290, ROW_H = 196, FEATURE_MS = 260;
 
-  var root, infoEl, logoEl, nameEl, metaEl, plotEl, chipsEl, gridEl, countEl;
+  var root, infoEl, labelEl, logoEl, nameEl, metaEl, plotEl, barEl, chipsEl, gridEl, countEl;
+  var bar = [], lit = -1, litAt = 0;   // the focused title's buttons, the lit one (-1: the grid has the focus), since when
   var opts = null, genres = [], genre = 0, shown = 0, ids = [], cells = [], items = {}, zone = 'grid', index = 0, scrollRow = 0;
   var featureTimer = null, resumeAt = null, openedAt = 0;
 
@@ -22,7 +25,7 @@
 
   /* [{key, label, count}]: "Tutte" first, then the genres with the most series. */
   function genreList(pool) {
-    var out = [{key: null, label: 'Tutte', count: allIds(pool).length}], g = pool.genres || {};
+    var out = [{key: null, label: opts.movie ? 'Tutti' : 'Tutte', count: allIds(pool).length}], g = pool.genres || {};
     Object.keys(g).sort(function(a, b) { return (g[b].count || 0) - (g[a].count || 0); }).forEach(function(k) {
       if ((pool.by_genre && pool.by_genre[k] || []).length) out.push({key: k, label: g[k].label || k, count: pool.by_genre[k].length});
     });
@@ -61,43 +64,54 @@
       gridEl.appendChild(c);
       return c;
     });
-    countEl.textContent = ids.length === 1 ? '1 serie' : ids.length + ' serie';
+    countEl.textContent = ids.length + (opts.movie ? ' film' : ' serie');
     index = 0;
     scrollRow = 0;
     drawChips();
     fill();
   }
 
-  /* A pool series ready to show and to open: TMDB details, its service, the button text. */
+  /* A pool title ready to show and to open: TMDB details, its service, the button text. Kept by its key: the same
+     number is one series and another film. */
   function resolve(id, done) {
-    if (items[id]) return done(items[id]);
-    U.details(id, function(s) {
-      var p = Core.poolItem(opts.pool, id), svc = Core.poolService(p);
+    var key = Core.keyOf(id, opts.movie), o = opts;
+    if (items[key]) return done(items[key]);
+    U.details(key, function(s) {
+      var p = Core.poolItem(o.pool, id), svc = Core.poolService(p);
       if (!s || !s.backdrop) return done(null);
       var direct = svc === 'netflix' && p && p.nf;
-      items[id] = {id: id, title: s.title, backdrop: s.backdrop, logo: s.logo, logoLang: s.logoLang, original: s.original,
-        plot: s.plot, meta: s.meta, metaShort: s.metaShort, svc: svc, entry: {top: 0, tag: null, season: null, netflixId: p && p.nf},
-        cta: direct ? 'Guarda su Netflix' : 'Apri ' + (opts.services[svc] ? opts.services[svc].name : svc)};
-      done(items[id]);
+      items[key] = {key: key, id: id, movie: !!o.movie, title: s.title, backdrop: s.backdrop, logo: s.logo, logoLang: s.logoLang,
+        original: s.original, plot: s.plot, meta: s.meta, metaShort: s.metaShort, trailer: s.trailer, svc: svc,
+        entry: {top: 0, tag: null, season: null, netflixId: p && p.nf},
+        cta: direct ? 'Guarda su Netflix' : 'Apri ' + (o.services[svc] ? o.services[svc].name : svc)};
+      done(items[key]);
     });
+  }
+  function itemAt(n) { return opts ? items[Core.keyOf(ids[n], opts.movie)] : null; }
+
+  /* "✓ Vista" on the card of a watched title: the list shows them all, watched or not. */
+  function seenBadge(cell, item) {
+    var old = cell.querySelector('.casa-card-seen'), on = State.seen(item.key);
+    if (old && !on) cell.removeChild(old);
+    if (!old && on) {
+      var v = el('span', null, 'casa-card-seen');
+      v.textContent = item.movie ? '✓ Visto' : '✓ Vista';
+      cell.appendChild(v);
+    }
   }
 
   /* Cards for the rows on screen and the next one; the others wait as placeholders. */
   function fill() {
-    var first = scrollRow * COLS, last = Math.min(ids.length, (scrollRow + 4) * COLS), seen = opts.seen();
+    var first = scrollRow * COLS, last = Math.min(ids.length, (scrollRow + 4) * COLS);
     for (var n = first; n < last; n++) (function(n) {
       if (!cells[n] || !cells[n].classList.contains('casa-ph') || cells[n].loading) return;
       cells[n].loading = true;
-      var mine = ids;
+      var mine = ids, o = opts;
       resolve(ids[n], function(item) {
-        if (mine !== ids || !cells[n]) return;
-        var b = item && opts.badge(item.svc), c = item ? U.card(item, b) : el('div', null, 'casa-card casa-gone');
+        if (mine !== ids || o !== opts || !cells[n]) return;   // another genre, or the list closed while the details came
+        var b = item && o.badge(item.svc), c = item ? U.card(item, b) : el('div', null, 'casa-card casa-gone');
         if (!item) c.textContent = 'Non disponibile';
-        if (item && seen[item.id]) {
-          var v = el('span', null, 'casa-card-seen');
-          v.textContent = '✓ Vista';
-          c.appendChild(v);
-        }
+        if (item) seenBadge(c, item);
         c.style.left = cells[n].style.left;
         c.style.top = cells[n].style.top;
         gridEl.replaceChild(c, cells[n]);
@@ -114,12 +128,40 @@
     gridEl.style.transform = 'translateY(' + -scrollRow * ROW_H + 'px)';
   }
 
+  /* The focused title's buttons, under its plot: grey until OK lights the first (the same buttons as Home's). */
+  function drawBar() {
+    var item = zone === 'grid' ? itemAt(index) : null, later = item && State.later(item.key), seen = item && State.seen(item.key);
+    bar = !item ? [] : [{id: 'play', icon: 'play', text: item.cta},
+      {id: 'later', icon: later ? 'saved' : 'later', text: later ? 'In lista' : 'Da vedere', on: later},
+      {id: 'seen', icon: 'seen', text: item.movie ? 'Già visto' : 'Già vista', on: seen}];
+    if (item && item.trailer && U.installed(Core.YOUTUBE)) bar.push({id: 'trailer', icon: 'trailer', text: 'Trailer'});
+    lit = Math.min(lit, bar.length - 1);
+    barEl.innerHTML = '';
+    bar.forEach(function(b, i) {
+      var n = el('span', null, 'casa-action' + (b.on ? ' on' : '') + (i === lit ? ' focused' : ''));
+      n.innerHTML = U.icon(b.icon) + '<span></span>';
+      n.lastChild.textContent = b.text;
+      barEl.appendChild(n);
+    });
+    root.className = lit >= 0 ? 'lit' : '';   // the card whose buttons are lit is marked, not focused
+  }
+  function press(b) {
+    var item = itemAt(index);
+    if (!item || !b) return;
+    if (b.id === 'later') return State.setLater(item.key, !State.later(item.key), {s: item.svc, nf: item.entry.netflixId});
+    if (b.id === 'seen') return State.setSeen(item.key, !State.seen(item.key));   // casa-state.js tells: the button and the card follow
+    resumeAt = {genre: shown, index: index, opts: opts};   // back from the app: the list again, on this title
+    if (b.id === 'trailer') { if (window.HomeApp) HomeApp.launch(Core.YOUTUBE, 'YouTube', Core.youtubeParams(item.trailer)); }
+    else opts.launch(item);
+  }
+
   /* The focused series in the top half: its words here, its picture behind the list (casa-shelf.js, which tints Home). */
   function feature() {
     clearTimeout(featureTimer);
-    var item = items[ids[index]];
+    var item = itemAt(index);
+    drawBar();
     if (zone !== 'grid') return;
-    if (!item) { infoEl.className = ''; return; }   // not loaded yet, or "Non disponibile": not the series before
+    if (!item) { infoEl.className = ''; return; }   // not loaded yet, or "Non disponibile": not the title before
     if (item.logo) {
       logoEl.src = U.image('logo', item.logo);
       logoEl.style.display = '';
@@ -156,7 +198,9 @@
 
   function open(o, at) {
     opts = o;
+    lit = -1;
     openedAt = Date.now();
+    labelEl.textContent = o.movie ? 'Tutti i film' : 'Tutte le serie';
     genres = genreList(o.pool);
     document.body.classList.add('casa-list');
     root.style.display = '';
@@ -188,6 +232,13 @@
     event.preventDefault();
     event.stopImmediatePropagation();
     if (event.type !== 'keydown' || event.repeat && key === 13) return;
+    if (zone === 'grid' && lit >= 0) {   // a button of the focused title is lit: the keys are the buttons'
+      if (key === 37 || key === 39) { lit = Math.max(0, Math.min(bar.length - 1, lit + (key === 39 ? 1 : -1))); drawBar(); }
+      // One OK, one action; not the OK that lit the button, still down (this remote repeats a held key as new presses).
+      else if (key === 13) { if (!U.repeated(event) && Date.now() - litAt >= 150) { litAt = Date.now(); press(bar[lit]); } }
+      else if (key === 40 || key === 461 || key === 27) { lit = -1; drawBar(); }
+      return;
+    }
     if (key === 461 || key === 27) return close(true);
     if (zone === 'chips') {
       if (key === 37 && genre > 0) { genre--; drawChips(); }
@@ -201,14 +252,14 @@
       if (Math.floor(index / COLS) < Math.floor((ids.length - 1) / COLS)) move(Math.min(COLS, ids.length - 1 - index));
     }
     else if (key === 38) {
-      if (index < COLS) { zone = 'chips'; infoEl.className = ''; drawChips(); mark(); }
+      if (index < COLS) { zone = 'chips'; infoEl.className = ''; drawChips(); mark(); drawBar(); }
       else move(-COLS);
     } else if (key === 13) {
-      // Remotes repeat a held OK as new presses: the one that opened the list does not also open its first series.
-      var item = items[ids[index]];
-      if (!item || Date.now() - openedAt < 500) return;
-      resumeAt = {genre: genre, index: index, opts: opts};
-      opts.launch(item);
+      // Remotes repeat a held OK as new presses: the one that opened the list does not also light a button.
+      if (!bar.length || U.repeated(event) || Date.now() - openedAt < 500) return;
+      lit = 0;
+      litAt = Date.now();
+      drawBar();
     }
   }
 
@@ -217,15 +268,17 @@
     root.style.display = 'none';
     infoEl = el('div', 'casaListInfo');
     var label = el('div', null, 'casa-list-label');
-    label.textContent = 'Tutte le serie';
+    labelEl = el('span');
     countEl = el('span', null, 'casa-list-count');
+    label.appendChild(labelEl);
     label.appendChild(countEl);
     logoEl = el('img', null, 'casa-list-logo');
     logoEl.crossOrigin = 'anonymous';
     nameEl = el('div', null, 'casa-list-name');
     metaEl = el('div', null, 'casa-list-meta');
     plotEl = el('div', null, 'casa-list-plot');
-    [label, logoEl, nameEl, metaEl, plotEl].forEach(function(n) { infoEl.appendChild(n); });
+    barEl = el('div', 'casaListActions');
+    [label, logoEl, nameEl, metaEl, plotEl, barEl].forEach(function(n) { infoEl.appendChild(n); });
     chipsEl = el('div', 'casaListChips');
     var viewport = el('div', 'casaListGrid');
     gridEl = el('div', null, 'casa-list-cells');
@@ -237,6 +290,12 @@
   }
 
   build();
+  // The marks changed (a button here, or the other TV): the buttons' words and the cards' "✓ Vista".
+  State.onChange(function() {
+    if (!opts) return;
+    drawBar();
+    for (var n = 0; n < cells.length; n++) { var item = itemAt(n); if (item && !cells[n].classList.contains('casa-ph')) seenBadge(cells[n], item); }
+  });
   document.addEventListener('keydown', onKey, true);
   document.addEventListener('keyup', function(event) {
     if (!opts || document.body.classList.contains('casa-rest')) return;
