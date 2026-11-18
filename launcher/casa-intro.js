@@ -1,7 +1,8 @@
 /* Fork lorenzoma97, "Casa": the opening card. The TV's own splash (splash.png in appinfo.json) can only be one still
    picture, so it is plain black and the cards take turns here, one per start of the app: a cold start, not HOME (the
-   app is running by then). At least 1.8 s on screen, then it fades; the first key ends it and is spent on that, so an OK
-   meant for the card does not open the app under it. Only on the TV, or in a browser with ?intro. */
+   app is running by then). At least 1.8 s on screen and until Home is drawn (app.js comes later, after the TV's answers),
+   then it fades; the first key ends it and is spent on that, so an OK meant for the card does not open the app under
+   it. Only on the TV, or in a browser with ?intro. */
 (function() {
   'use strict';
   var CARDS = ['intro-arcade.png', 'intro-nero.png'], MIN_MS = 1800, MAX_MS = 5000;
@@ -34,8 +35,10 @@
   }
   window.addEventListener('keydown', onKey, true);
   window.addEventListener('keyup', onKey, true);
-  document.addEventListener('DOMContentLoaded', function() {
+  var drawn = setInterval(function() {
+    if (window.RootLauncherRendered !== true && !gone) return;   // app.js sets it once the apps are on screen
+    clearInterval(drawn);
     setTimeout(end, Math.max(0, MIN_MS - (Date.now() - shownAt)));
-  });
+  }, 100);
   setTimeout(end, MAX_MS);
 }());

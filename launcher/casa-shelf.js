@@ -21,7 +21,8 @@
   var PLAY_ICON = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M7 4.6v14.8l12.2-7.4z"/></svg>';
   var ALL_ICON = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M3 4h8v7H3zM13 4h8v7h-8zM3 13h8v7H3zM13 13h8v7h-8z"/></svg>';
   var tileEl = null, lastRow = false, week = null;
-  var shelves = {};   // service -> resolved items, kept for the session
+  var shelves = {}, shelvesAt = 0;   // service -> resolved items, kept as long as content.json is (CONTENT_TTL)
+  var picSeq = 0, okAt = 0, upAt = {}, levelKey = 0;   // the last picture asked for; the last OK; keyup times; the key that changed level
   var cardRows = {};  // service -> {items, nodes}: the detail's cards, built once per app
   var colors = {}, darkLogos = {};   // picture path -> glow colour, logo path -> drawn white: worked out once
 
@@ -128,6 +129,8 @@
 
   /* The titles of one service in shelf order; the first that resolves shows at once, the others join in order. */
   function resolve(svc, ready) {
+    // Kept six hours, as content.json is: the app stays open for days, and kept showing the week it was started in.
+    if (Date.now() - shelvesAt > CONTENT_TTL) { shelves = {}; shelvesAt = Date.now(); }
     if (shelves[svc]) return ready(shelves[svc]);
     content(function(c) {
       var entries = c ? Core.plan(c)[svc] || [] : [];
@@ -203,7 +206,7 @@
   /* The picture's glow colour for the rest of Home (casa-home.js), from a 300 px copy: sampling the full picture decoded
      it on the main thread (155 ms on the TV). Worked out once per picture, kept across restarts. */
   function tintFrom(path) {
-    var known = colors[path] || load('casa.c.' + path, Infinity);
+    var known = colors[path] || load('casa.c.' + path, Infinity), seq = picSeq;
     if (known) {
       colors[path] = known;
       if (window.CasaHome) CasaHome.tint(known);
@@ -220,7 +223,7 @@
         g.drawImage(img, 0, 0, 24, 14);
         colors[path] = Core.dominant(g.getImageData(0, 0, 24, 14).data);
         keep('casa.c.' + path, colors[path]);
-        if (window.CasaHome) CasaHome.tint(colors[path]);
+        if (seq === picSeq && window.CasaHome) CasaHome.tint(colors[path]);   // not the colour of a picture passed over
       } catch (_) { /* tainted canvas: the glow keeps its colour */ }
     };
     img.src = image('backdrop', path, 'w300');
@@ -253,6 +256,9 @@
       logoEl.style.display = 'none';
       nameEl.style.display = '';
       nameEl.textContent = item.title;
+      // No logo: the name in letters, smaller the longer it is ("Livatino - Il giudice e i suoi ragazzi" was cut mid-word).
+      var n = (item.title || '').length;
+      nameEl.style.fontSize = n > 30 ? '58px' : n > 18 ? '72px' : '';
     }
     // An English logo over an Italian title ("TREASURE ISLAND" / "L'isola del tesoro"): the name to look for in the app.
     var other = item.logo && item.logoLang && item.logoLang !== 'it' && item.title && item.title !== item.original;
@@ -281,8 +287,7 @@
     var home = !detail && !document.body.classList.contains('casa-scopri');
     watchEl.lastChild.textContent = verb(item);
     allEl.style.display = home ? '' : 'none';
-    dotsEl.innerHTML = '';
-    for (var i = 0; i < Math.min(items.length, 12); i++) dotsEl.appendChild(el('span', null, 'casa-dot' + (i === index ? ' on' : '')));
+    dots();
     if (detail) cardsLabel.textContent = e.top && !Core.staleWeek(week, now) ? 'Top 10 serie in Italia · ' + Core.weekIt(week) : 'Novità';
     // The new title rises in: logo, badges, plot and button one after the other (casa.css). Two classes in turn restart
     // the animation without forcing a layout (offsetWidth did, on every title).
@@ -291,11 +296,19 @@
     enterFlip = !enterFlip;
   }
 
+  function dots() {
+    dotsEl.innerHTML = '';
+    for (var i = 0; i < Math.min(items.length, 12); i++) dotsEl.appendChild(el('span', null, 'casa-dot' + (i === index ? ' on' : '')));
+  }
+
   function picture(item) {
-    var next = layers[1 - layerIndex], current = layers[layerIndex], img = new Image(), mine = token;
+    var img = new Image(), mine = token, seq = ++picSeq;
     if (!demo) img.crossOrigin = 'anonymous';   // TMDB allows it: the glow colour needs the pixels
     img.onload = function() {
-      if (mine !== token) return;
+      // Pictures come back in any order: only the last one asked for is shown (moving along the cards left the
+      // picture of one title under the words of another).
+      if (mine !== token || seq !== picSeq) return;
+      var next = layers[1 - layerIndex], current = layers[layerIndex];
       next.style.transition = 'none';
       next.style.transform = 'scale(1)';
       next.style.backgroundImage = 'url("' + img.src + '")';
@@ -318,6 +331,7 @@
     document.body.classList.add('casa-on');
     picture(item);
     clearTimeout(swapTimer);
+    hero.classList.remove('swapping');
     if (first || detail) {
       text(item);
     } else {
@@ -340,6 +354,8 @@
   function hide() {
     token++;
     clearTimeout(timer);
+    clearTimeout(swapTimer);
+    hero.classList.remove('swapping');
     items = [];
     lightButton(-1);
     index = -1;
@@ -380,8 +396,18 @@
     text(items[index]);
     schedule();
   }
-  function play(event) {
-    if (event && event.repeat) return;   // a held OK opens it once
+  /* A key that is still down: the browser's repeat, or (this remote, for a held key) a new press right after its
+     release. casa-home.js asks too. */
+  function repeated(event) {
+    return !!event.repeat || Date.now() - (upAt[event.keyCode] || 0) < 120;
+  }
+  /* One OK, one action: a held OK played the title twice, and opened the cards and their first title at once. */
+  function okOnce(event) {
+    if (repeated(event) || Date.now() - okAt < 500) return false;
+    okAt = Date.now();
+    return true;
+  }
+  function play() {
     var item = items[index], params = item && Core.netflixParams(item.entry.netflixId);
     var svc = Core.serviceOf(app && app.id);
     if (window.HomeApp && app) HomeApp.launch(app.id, app.title, svc === 'netflix' ? params : null);
@@ -401,8 +427,8 @@
     if (key === 37 || key === 39) {
       if (!detail) lightButton(key === 37 ? 0 : 1);
     } else if (key === 13) {
-      if (event.repeat) return true;   // held: once, and not a hold on the dock app underneath
-      if (button === 0) play(event);
+      if (!okOnce(event)) return true;   // held: once, and not a hold on the dock app underneath
+      if (button === 0) play();
       else { lightButton(-1); enterDetail(); }
     } else if (key === 40 || key === 461 || key === 27) {
       lightButton(-1);   // down a level: the cards in the detail, the dock in Home
@@ -432,16 +458,27 @@
 
   // Ahead of app.js (capture): on a lit button or in the detail every key is ours; on the dock, Up lights the button.
   function onKey(event) {
-    var key = event.keyCode, mine = false;
-    if (document.body.classList.contains('casa-rest') || document.body.classList.contains('casa-list')) return;   // theirs
-    if (button >= 0) {
+    var key = event.keyCode, mine = false, was = button + '|' + detail;
+    if (event.type === 'keyup') upAt[key] = Date.now();
+    // levelKey lasts as long as that press does: another key, or the same one pressed anew, ends it (left standing, it
+    // ate the repeats of a later hold: no moving an app with a held OK, one step for a held Right).
+    else if (key !== levelKey || !repeated(event)) levelKey = 0;
+    if (document.body.classList.contains('casa-rest') || document.body.classList.contains('casa-list')) {   // theirs
+      if (event.type === 'keyup') swallow[key] = false;
+      return;
+    }
+    if (event.type === 'keydown' && levelKey) {
+      // Still the press that changed level (Up: the dock, then the button): held a moment longer it went on to the top
+      // bar, and a held Down from the button fell through the dock into Scopri.
+      mine = true;
+    } else if (button >= 0) {
       mine = event.type === 'keydown' ? onButtonKey(event, key) : !!swallow[key];
     } else if (detail) {
       mine = true;
       if (event.type === 'keydown') {
         if (key === 37) move(-1);
         else if (key === 39) move(1);
-        else if (key === 13) play(event);
+        else if (key === 13) { if (okOnce(event)) play(); }
         else if (key === 40) exitDetail();
         else if (key === 461 || key === 27) {   // Back: to the first title, then out
           if (index > 0) { move(-index); } else exitDetail();
@@ -456,10 +493,15 @@
     } else if (event.type === 'keyup' && swallow[key]) {
       mine = true;
     }
+    if (event.type === 'keydown' && was !== button + '|' + detail) levelKey = key;
     if (mine) {
       swallow[key] = event.type === 'keydown';
       event.preventDefault();
       event.stopImmediatePropagation();
+    } else if (event.type === 'keydown') {
+      // Not ours, so its release is not ours either: a release lost when a title opened (the app took the keys) left
+      // the flag up, and the next OK on the dock never ended: the app was picked up to be moved.
+      swallow[key] = false;
     }
   }
 
@@ -477,15 +519,25 @@
     app = tile;
     if (detail) exitDetail();
     hide();
-    if (!svc) return;
+    if (!svc) {
+      if (window.CasaHome) CasaHome.tint(null);   // YouTube, DAZN: not the colour of the last title
+      return;
+    }
     var mine = ++token;
     resolve(svc, function(list) {
-      if (mine !== token || !list.length) return;
+      if (mine !== token) return;
+      if (!list.length) {
+        if (window.CasaHome) CasaHome.tint(null);
+        return;
+      }
       var shown = items[index];
       items = list;
       if (!shown) return show(0, true);
-      index = items.indexOf(shown);   // a title earlier in the order arrived later: the one on screen stays
-      text(shown);
+      // The others join the one on screen (a title earlier in the order may arrive later): its words stay as they are
+      // (they used to rise in again for every title that arrived), the dots and the cards follow.
+      index = items.indexOf(shown);
+      dots();
+      if (detail) buildCards();
       schedule();   // the first title came alone: rotate now that there are others
     });
   }
@@ -515,6 +567,10 @@
     lightButton(-1);
     if (detail) exitDetail();
   }
+  /* Back in front (HOME, the return from an app) once the titles are six hours old: again, from a fresh content.json. */
+  function refresh() {
+    if (app && !detail && button < 0 && Date.now() - shelvesAt > CONTENT_TTL && !document.body.classList.contains('casa-scopri')) refocus();
+  }
   /* The rest screen: no rotation (and no decoding) under it. */
   function pause(on) {
     paused = !!on;
@@ -524,10 +580,12 @@
   if (!Core) return;
   build();
   takeKey(window.PalmSystem && window.PalmSystem.launchParams);
-  document.addEventListener('webOSRelaunch', function(e) { takeKey(e && e.detail); reset(); });
+  document.addEventListener('webOSRelaunch', function(e) { takeKey(e && e.detail); reset(); refresh(); });
+  document.addEventListener('visibilitychange', function() { if (!document.hidden) refresh(); });
   document.addEventListener('keydown', onKey, true);
   document.addEventListener('keyup', onKey, true);
   window.CasaShelf = {focus: focus, zone: setZone, feature: feature, refocus: refocus, reset: reset, pause: pause,
     editing: editing, state: function() { return {zone: zone, row: row, lastRow: lastRow, detail: detail}; },
-    util: {load: load, keep: keep, getJSON: getJSON, content: content, details: details, image: image, card: card}};
+    util: {load: load, keep: keep, getJSON: getJSON, content: content, details: details, image: image, card: card,
+      repeated: repeated}};
 }());

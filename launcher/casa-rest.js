@@ -33,7 +33,7 @@
 
   var rest, artLayers, artIndex = Math.floor(Math.random() * ART.length), artLayer = 0, artTimer = null;
   var clockEl, dateEl, wxEl, captionEl, cardsEl, idleTimer = null, asleepTimer = null, resting = false, cardIndex = -1;
-  var picks = [], swallow = {};
+  var picks = [], artSeq = 0, wakeKey = 0, wakeSeen = 0;   // the painting asked for last; the key that woke Home, and when it was last seen
 
   function el(tag, id, cls) {
     var e = document.createElement(tag);
@@ -47,9 +47,10 @@
   }
 
   function nextArt() {
-    var a = ART[artIndex = (artIndex + 1) % ART.length], next = artLayers[1 - artLayer], img = new Image();
+    var a = ART[artIndex = (artIndex + 1) % ART.length], img = new Image(), mine = ++artSeq;
     img.onload = function() {
-      if (!resting) return;
+      if (!resting || mine !== artSeq) return;   // closed, or closed and opened again: that painting is not this one
+      var next = artLayers[1 - artLayer];
       next.style.transition = 'none';
       next.style.transform = 'scale(1.02) translate(0, 0)';
       next.style.backgroundImage = 'url("' + img.src + '")';
@@ -104,7 +105,9 @@
   /* What was open (the detail, Scopri, the whole list) closes first: under the paintings its keys used to stay live, and
      the OK that woke Home opened a title. Once the paintings cover it, Home sleeps: no rotation, no drawing. */
   function open() {
-    if (resting) return;
+    // Not behind another app (the page is hidden then): the paintings greeted the return from a series, one key more
+    // to get Home back, and the way back to the title was lost.
+    if (resting || document.hidden) return;
     resting = true;
     cardIndex = -1;
     if (window.CasaList) CasaList.close();
@@ -139,29 +142,43 @@
     idleTimer = setTimeout(open, IDLE_MS);
   }
 
-  function onKey(event) {
-    if (!resting) {
-      if (event.type === 'keyup' && swallow[event.keyCode]) {
-        swallow[event.keyCode] = false;
-        event.preventDefault();
-        event.stopImmediatePropagation();
-      }
+  /* On window, in capture: ahead of every other key listener. The key that woke Home only wakes it, for as long as it
+     stays down (its repeats, its release, and the new presses a held key turns into on this remote): held a second, OK
+     picked the app under it up for moving, and Down went on into Scopri. Any other key is activity. */
+  function guard(event) {
+    if (resting) return;   // onKey, below, has the keys of the rest screen
+    var key = event.keyCode;
+    if (key === wakeKey && (event.type === 'keyup' || event.repeat || Date.now() - wakeSeen < 400)) {
+      wakeSeen = Date.now();
+      event.preventDefault();
+      event.stopImmediatePropagation();
       return;
     }
+    if (event.type === 'keydown') {
+      wakeKey = 0;
+      wake();
+    }
+  }
+
+  function onKey(event) {
+    if (!resting) return;
     var key = event.keyCode;
     if (key === 447 || key === 448 || key === 449 || key === 175 || key === 174 || key === 173) return;   // volume
     event.preventDefault();
     event.stopImmediatePropagation();
     if (event.type !== 'keydown' || event.repeat) return;
-    swallow[key] = true;
     if ((key === 37 || key === 39) && picks.length) {
       cardIndex = cardIndex < 0 ? 0 : Math.max(0, Math.min(picks.length - 1, cardIndex + (key === 39 ? 1 : -1)));
       markCards();
     } else if (key === 13 && cardIndex >= 0) {
       var i = cardIndex;
+      wakeKey = key;
+      wakeSeen = Date.now();
       close();
       if (window.CasaHome) CasaHome.open(i);
     } else {
+      wakeKey = key;
+      wakeSeen = Date.now();
       close();   // any other key: back to Home, and only that
     }
   }
@@ -200,10 +217,18 @@
   setInterval(clock, 20000);
   ['mousemove', 'wheel'].forEach(function(type) { document.addEventListener(type, function() { if (resting) close(); else wake(); }, true); });
   // Every key is activity, whoever handles it: on window in capture, before the shelf, Scopri and the list stop it.
-  window.addEventListener('keydown', function() { if (!resting) wake(); }, true);
+  window.addEventListener('keydown', guard, true);
+  window.addEventListener('keyup', guard, true);
   document.addEventListener('keydown', onKey, true);
   document.addEventListener('keyup', onKey, true);
   document.addEventListener('webOSRelaunch', close);   // HOME: Home itself
+  // Behind another app nothing rests and no painting loads; back in front the idle time starts again.
+  document.addEventListener('visibilitychange', function() {
+    if (document.hidden) {
+      close();
+      clearTimeout(idleTimer);
+    } else wake();
+  });
   wake();
   window.CasaRest = {
     weather: function(w) { drawWeather(w); },

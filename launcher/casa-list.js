@@ -10,8 +10,8 @@
   var U = Shelf.util, COLS = 5, CELL_W = 290, ROW_H = 196, FEATURE_MS = 260;
 
   var root, infoEl, logoEl, nameEl, metaEl, plotEl, chipsEl, gridEl, countEl;
-  var opts = null, genres = [], genre = 0, ids = [], cells = [], items = {}, zone = 'grid', index = 0, scrollRow = 0;
-  var featureTimer = null, resumeAt = null;
+  var opts = null, genres = [], genre = 0, shown = 0, ids = [], cells = [], items = {}, zone = 'grid', index = 0, scrollRow = 0;
+  var featureTimer = null, resumeAt = null, openedAt = 0;
 
   function el(tag, id, cls) {
     var e = document.createElement(tag);
@@ -39,7 +39,8 @@
   function drawChips() {
     chipsEl.innerHTML = '';
     genres.forEach(function(g, i) {
-      var c = el('span', null, 'casa-list-chip' + (i === genre ? ' on' : '') + (zone === 'chips' && i === genre ? ' focused' : ''));
+      // "on": the genre the grid shows; "focused": the chip the arrows are on (they used to move together).
+      var c = el('span', null, 'casa-list-chip' + (i === shown ? ' on' : '') + (zone === 'chips' && i === genre ? ' focused' : ''));
       c.textContent = g.label + '  ' + g.count;
       chipsEl.appendChild(c);
     });
@@ -49,7 +50,7 @@
   }
 
   function showGenre(i) {
-    genre = i;
+    genre = shown = i;
     var key = genres[i].key;
     ids = key === null ? allIds(opts.pool) : (opts.pool.by_genre[key] || []).slice();
     gridEl.innerHTML = '';
@@ -117,7 +118,8 @@
   function feature() {
     clearTimeout(featureTimer);
     var item = items[ids[index]];
-    if (!item || zone !== 'grid') return;
+    if (zone !== 'grid') return;
+    if (!item) { infoEl.className = ''; return; }   // not loaded yet, or "Non disponibile": not the series before
     if (item.logo) {
       logoEl.src = U.image('logo', item.logo);
       logoEl.style.display = '';
@@ -154,6 +156,7 @@
 
   function open(o, at) {
     opts = o;
+    openedAt = Date.now();
     genres = genreList(o.pool);
     document.body.classList.add('casa-list');
     root.style.display = '';
@@ -174,6 +177,7 @@
     infoEl.className = '';
     var o = opts;
     opts = null;
+    if (back) resumeAt = null;   // left by hand: a later return from another app does not reopen the list
     if (back && o.back) o.back();
   }
 
@@ -193,13 +197,16 @@
     }
     if (key === 37) move(-1);
     else if (key === 39) move(1);
-    else if (key === 40) move(Math.min(COLS, ids.length - 1 - index));
+    else if (key === 40) {   // only where a lower row exists: on the last one Down used to slide sideways
+      if (Math.floor(index / COLS) < Math.floor((ids.length - 1) / COLS)) move(Math.min(COLS, ids.length - 1 - index));
+    }
     else if (key === 38) {
       if (index < COLS) { zone = 'chips'; infoEl.className = ''; drawChips(); mark(); }
       else move(-COLS);
     } else if (key === 13) {
+      // Remotes repeat a held OK as new presses: the one that opened the list does not also open its first series.
       var item = items[ids[index]];
-      if (!item) return;
+      if (!item || Date.now() - openedAt < 500) return;
       resumeAt = {genre: genre, index: index, opts: opts};
       opts.launch(item);
     }
@@ -244,7 +251,8 @@
     setTimeout(function() {
       if (resumeAt !== at) return;
       resumeAt = null;
-      if (!opts) open(at.opts, at);
+      // Still open: app.js has put the focus back on the dock, whose titles took the picture behind the list.
+      if (!opts) open(at.opts, at); else feature();
     }, 300);
   });
   window.CasaList = {open: function(o) { resumeAt = null; open(o); }, close: function() { resumeAt = null; close(false); },

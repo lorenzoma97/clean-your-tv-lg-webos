@@ -116,6 +116,12 @@ assert.notDeepEqual(Casa.tonight(pool, {day: '2026-10-28', ids: [1, 3, 4, 5, 6]}
 assert.equal(Casa.poolService(Casa.poolItem(pool, 3)), 'netflix', 'Netflix first: it opens the title itself');
 assert.equal(Casa.poolService(Casa.poolItem(pool, 4)), 'raiplay');
 assert.equal(Casa.appOf('prime'), 'amazon');
+assert.equal(Casa.appOf('hbomax'), 'com.wbd.stream');
+assert.equal(Casa.serviceOf('com.wbd.stream'), 'hbomax');
+// Shown lately: not again today while the pool has others (7 titles, 5 avoided: only 2 and 7 are left, then the rest).
+assert.deepEqual(Casa.tonight(pool, null, '2026-10-29', {}, 2, random, {1: true, 3: true, 4: true, 5: true, 6: true}).sort(), [2, 7]);
+assert.equal(Casa.describe(66, true)[0], 'Pioggia gelata');
+assert.equal(Casa.describe(65, true)[0], 'Pioggia forte');
 
 // Weather words, as on the Metz.
 assert.deepEqual(Casa.describe(0, true), ['Sereno', 'sun']);

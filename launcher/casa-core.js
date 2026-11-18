@@ -13,7 +13,8 @@
     netflix: ['netflix', 'preview.netflix'],
     prime: ['amazon', 'preview.prime'],
     raiplay: ['it.rainet.raiplay'],
-    infinity: ['com.5412449.198417']
+    infinity: ['com.5412449.198417'],
+    hbomax: ['com.wbd.stream', 'preview.hbomax']
   };
 
   function blank(s) { return s === null || s === undefined || String(s).replace(/\s+/g, '') === ''; }
@@ -46,7 +47,7 @@
   function plan(content) {
     var out = {}, services = content && content.services, novita = content && content.novita;
     if (!services) return out;
-    ['netflix', 'prime', 'raiplay', 'infinity'].forEach(function(svc) {
+    ['netflix', 'prime', 'raiplay', 'infinity', 'hbomax'].forEach(function(svc) {
       if (!services[svc]) return;
       var list = [], seen = {};
       if (svc === 'netflix') {
@@ -243,11 +244,12 @@
     return c.slice(0, n);
   }
 
-  /* The saved five while they are from today and none was watched since; else five new. */
-  function tonight(pool, saved, today, seen, n, random) {
+  /* The saved five while they are from today and none was watched since; else five new, not among the ones shown lately
+     (avoid: {id: true}) while the pool has others. */
+  function tonight(pool, saved, today, seen, n, random, avoid) {
     var ok = saved && saved.day === today && saved.ids && saved.ids.length === n;
     for (var i = 0; ok && i < saved.ids.length; i++) ok = !seen[saved.ids[i]];
-    return ok ? saved.ids.slice() : pick(pool, null, seen, {}, n, random);
+    return ok ? saved.ids.slice() : pick(pool, null, seen, avoid || {}, n, random);
   }
 
   function poolItem(pool, id) {
@@ -275,7 +277,8 @@
     if (code === 3) return ['Nuvoloso', 'cloud'];
     if (code === 45 || code === 48) return ['Nebbia', 'fog'];
     if (code >= 51 && code <= 57) return ['Pioviggine', 'rain'];
-    if (code >= 61 && code <= 67) return [code >= 65 ? 'Pioggia forte' : 'Pioggia', 'rain'];
+    if (code === 66 || code === 67) return ['Pioggia gelata', 'rain'];
+    if (code >= 61 && code <= 65) return [code === 65 ? 'Pioggia forte' : 'Pioggia', 'rain'];
     if (code >= 71 && code <= 77) return ['Neve', 'snow'];
     if (code >= 80 && code <= 82) return ['Rovesci', 'rain'];
     if (code === 85 || code === 86) return ['Rovesci di neve', 'snow'];
