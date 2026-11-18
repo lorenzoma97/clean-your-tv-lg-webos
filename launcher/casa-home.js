@@ -4,9 +4,11 @@
      Champions League, Formula 1: when and where), or a warning when the Developer Mode session is about to run out.
    - Under the apps, rows of title cards: "Da vedere" (the owner's list, when it has titles), "Scopri una nuova serie"
      and "Scopri un film" (five a day each from the pool, then the whole list, casa-list.js). Down from the apps enters
-     the first row; Left/Right move along it, Down/Up change row, Back returns to the apps. The focused title fills the
-     screen; OK lights its buttons under the plot (casa-shelf.js): Guarda, Già vista, Non oggi, Da vedere, Trailer,
-     Altre cinque, and for a few seconds after Già vista its Annulla.
+     the first row; Left/Right move along it, Down goes to the next row, Back returns to the apps. The focused title
+     fills the screen and OK opens it. Its buttons are under the plot, right above its row (casa-shelf.js): Guarda, Già
+     vista, Non oggi, Da vedere, Trailer, Altre cinque, and for a few seconds after Già vista its Annulla. Up from the
+     card lights the first, where they are drawn (lit by OK alone, one looked for them with Up and left the rows); Up
+     again goes on to the row before, or to the apps.
    - Developer Mode auto-renewal (the original project's Beta, off there by default) is turned on once per installation.
    - The colour of the picture on screen tints the glow, the dock band and the focus; a pool of light under the focused
      app, the apps beside it dimmer, and the focus that tilts with the Magic Remote pointer.
@@ -39,7 +41,7 @@
 
   var light, glows, glowIndex = 0, weatherEl, noteEl, scopri;
   var rows = [], rowIndex = -1, active = false, zone = 'none', focusedEl = null, color = null;
-  var services = {}, lastWeather = null, undo = null, undoTimer = null, resume = null, laterSeq = 0;
+  var services = {}, lastWeather = null, undo = null, undoTimer = null, resume = null, laterSeq = 0, actedAt = 0;
   var laterFocus = null, dropped = null, leftKey = 0;   // the title Annulla is bringing back; the one taken off here; the key that left the rows
   var notes = [], noteIndex = 0, noteTimer = null, devNote = null;
   var glass = !!(window.CSS && CSS.supports && (CSS.supports('backdrop-filter', 'blur(2px)') || CSS.supports('-webkit-backdrop-filter', 'blur(2px)')));
@@ -195,19 +197,29 @@
   }
   /* Developer Mode auto-renewal: the original project's Beta (Home settings), off by default there. The owner asked for
      it on, so Home turns it on once per installation: a reinstallation (LG wiped the apps once) starts with it off
-     again. Turned off by hand in Home settings later, it stays off. Then, at every look: is the session about to end? */
+     again. Turned off by hand in Home settings later, it stays off.
+     Then, at every look, Home asks the service for a check: on a TV that is not rooted the service cannot schedule its
+     own (renewal-service/manager.js, homeDriven), and Home is looked at every day. The service keeps its own pace (once
+     a day while all is well), so asking often costs nothing. The answer says whether the session is about to end. */
   function renewal() {
     var done = false;
     try { done = !!localStorage.getItem('casa.renewal'); } catch (_) { done = true; }
     var mark = function() { try { localStorage.setItem('casa.renewal', '1'); } catch (_) { /* asked again next start */ } };
-    renewalCall('status', function(state) {
-      if (!state) return;   // no service (the browser preview), or not yet: at the next look
-      var w = Core.devWarning(state, Date.now());
+    var warn = function(state) {
+      var w = state ? Core.devWarning(state, Date.now()) : null;
       devNote = w ? {title: w[0], text: w[1]} : null;
       drawNote();
+    };
+    renewalCall(done ? 'check' : 'status', function(state) {
+      if (!state) return;   // no service (the browser preview), or not yet: at the next look
+      warn(state);
       if (done) return;
       if (state.enabled) return mark();
-      renewalCall('enable', function(after) { if (after && after.enabled) mark(); });
+      renewalCall('enable', function(after) {
+        if (!after || !after.enabled) return;
+        mark();
+        warn(after);
+      });
     });
   }
 
@@ -623,10 +635,18 @@
     if (!active || !r) return;
     if (id === 'away') resume = {row: r.key, index: r.at, lit: 'trailer'};   // the trailer opens YouTube: back to this title, on its button
     else if (id === 'play') open(r, r.at);
+    else if (id === 'up') { Shelf.light(null); changeRow(-1); }   // Up from the buttons: the row before, or the apps
     else if (id === 'undo') undoLast();
     else if (id === 'redraw') { if (r.deck) redraw(r.deck); }
     else if (id === 'seen' || id === 'skip') { if (r.deck) replace(r.deck, r.at, id === 'seen'); else if (id === 'seen') unsave(r.at, true); }
     else if (id === 'drop') { if (!r.deck) unsave(r.at, false); }
+  }
+  /* OK on a card: its title opens (the list card: the whole list). A held OK repeats: one action per press, and none in
+     the half second after one (it opened a title twice). */
+  function act(event) {
+    if (U.repeated(event) || Date.now() - actedAt < 500) return;
+    actedAt = Date.now();
+    if (onAll()) openList(rows[rowIndex]); else open(rows[rowIndex], rows[rowIndex].at);
   }
   function openList(r) {
     var d = r.deck;
@@ -648,15 +668,17 @@
     if (active) {
       mine = true;
       if (event.type === 'keydown') {
-        // Still here, at the keys: no return from an app is due (a title that did not open left one).
-        if (!U.repeated(event)) resume = null;
+        // Still here, at the keys: no return from an app is due (a title that did not open left one). Not for the OK that
+        // opened it, still down.
+        if (!U.repeated(event) && Date.now() - actedAt >= 500) resume = null;
         // Up, Down, Back and OK change level: held a moment too long, a key counts once (Down went on to the next row).
         if (U.repeated(event) && (key === 38 || key === 40 || key === 461 || key === 27 || key === 13)) return hold(event);
         if (key === 37) move(-1);
         else if (key === 39) move(1);
-        else if (key === 13) { if (onAll()) openList(rows[rowIndex]); else Shelf.light('first'); }   // the title's buttons: the first lit
+        else if (key === 13) act(event);
         else if (key === 40) changeRow(1);
-        else if (key === 38) changeRow(-1);
+        // Up: the title's buttons, drawn right above its row (the list card has none: the row before, or the apps).
+        else if (key === 38) { if (onAll() || !Shelf.light('first', key)) changeRow(-1); }
         else if (key === 461 || key === 27) leave();
         else mine = false;
         if (!active) leftKey = key;   // this press left the rows: held, it stops at the apps

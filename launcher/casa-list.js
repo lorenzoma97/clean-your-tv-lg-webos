@@ -1,6 +1,7 @@
 /* Fork lorenzoma97, "Casa": the whole Scopri list, from the "Tutte le serie" (or "Tutti i film") card after the five.
    Every title of the pool on the owner's services (content.json pool or pool_film: the best hundred first, then the
-   others), all or by genre: the genres on top, a grid of five a row under the focused title's picture and words. Arrows
+   others), all or by genre: the genres on top, a grid of six a row (Home's column, edge to edge) under the focused
+   title's picture and words. Arrows
    move, OK on a genre shows it, OK on a title lights its buttons under the plot, as in the rows of Home: Guarda (Netflix
    on the title itself), Da vedere, Già vista, Trailer (Left/Right, OK acts, Down or Back returns to the grid). Back on
    the grid returns to the five. Details and pictures only for the rows on screen (TMDB, kept by casa-shelf.js); coming
@@ -9,7 +10,7 @@
   'use strict';
   var Core = window.CasaCore, Shelf = window.CasaShelf, State = window.CasaState;
   if (!Core || !Shelf || !State) return;
-  var U = Shelf.util, COLS = 5, CELL_W = 290, ROW_H = 196, FEATURE_MS = 260;
+  var U = Shelf.util, COLS = 6, CELL_W = 290, ROW_H = 196, FEATURE_MS = 260;
 
   var root, infoEl, labelEl, logoEl, nameEl, metaEl, plotEl, barEl, chipsEl, gridEl, countEl;
   var bar = [], lit = -1, litAt = 0;   // the focused title's buttons, the lit one (-1: the grid has the focus), since when
@@ -128,7 +129,8 @@
     gridEl.style.transform = 'translateY(' + -scrollRow * ROW_H + 'px)';
   }
 
-  /* The focused title's buttons, under its plot: grey until OK lights the first (the same buttons as Home's). */
+  /* The focused title's buttons, under its plot (the same as Home's). Not drawn until OK lights the first: grey above
+     the grid they looked reachable with Up, which here moves in the grid and to the genres. */
   function drawBar() {
     var item = zone === 'grid' ? itemAt(index) : null, later = item && State.later(item.key), seen = item && State.seen(item.key);
     bar = !item ? [] : [{id: 'play', icon: 'play', text: item.cta},
@@ -137,7 +139,7 @@
     if (item && item.trailer && U.installed(Core.YOUTUBE)) bar.push({id: 'trailer', icon: 'trailer', text: 'Trailer'});
     lit = Math.min(lit, bar.length - 1);
     barEl.innerHTML = '';
-    bar.forEach(function(b, i) {
+    if (lit >= 0) bar.forEach(function(b, i) {
       var n = el('span', null, 'casa-action' + (b.on ? ' on' : '') + (i === lit ? ' focused' : ''));
       n.innerHTML = U.icon(b.icon) + '<span></span>';
       n.lastChild.textContent = b.text;

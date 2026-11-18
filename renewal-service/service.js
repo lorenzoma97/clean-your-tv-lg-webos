@@ -34,7 +34,8 @@ manager=require('./manager')({load:readConfig,save:saveConfig,now:Date.now,run:f
 });
 function respond(m,state){m.respond({returnValue:true,beta:true,version:require('./package.json').version,state:state});}
 service.register('status',function(m){respond(m,manager.status());});
-service.register('enable',function(m){manager.enable().then(function(s){respond(m,s);});});
+// Fork lorenzoma97: true = without the hourly activity Home drives the checks (casa-home.js asks at every look).
+service.register('enable',function(m){manager.enable(true).then(function(s){respond(m,s);});});
 service.register('disable',function(m){manager.disable().then(function(s){respond(m,s);});});
 service.register('check',function(m){manager.check().then(function(s){respond(m,s);});});
 service.register('tick',function(m){manager.check().then(function(s){

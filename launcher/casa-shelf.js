@@ -3,7 +3,8 @@
    logo, badges and plot rotate every 8 s. Under the plot a row of grey buttons that light up: "Guarda su Netflix",
    "Trailer", "Da vedere", "Tutti i titoli". Up from the dock lights the first; Left/Right move, OK acts, Down returns.
    "Tutti i titoli" opens the detail, a row of title cards (Left/Right, OK plays, Up the buttons, Down/Back returns).
-   The rows under the apps (casa-home.js) show their focused title here with their own buttons (feature()).
+   The rows under the apps (casa-home.js) show their focused title here with their own buttons (feature()): the same
+   rule, Up from the card lights them, and Up again goes on (casa-home.js says where).
    app.js calls focus() and zone().
    Data: content.json (tv-casa-data) and TMDB details with the owner's key, kept in localStorage (only what is shown).
    The browser preview passes window.CASA_DEMO {content, details: {tmdb id: TMDB reply}} instead of the network. */
@@ -635,7 +636,10 @@
     } else if (key === 40 || key === 461 || key === 27) {
       light(null);   // down a level: the cards in the detail, the dock in Home, the card of a row under the apps
     } else if (key === 38) {
-      if (context) return true;   // a title of the rows under the apps: nothing above its buttons
+      if (context) {   // a title of a row under the apps: on to the row before, or to the apps (casa-home.js)
+        if (!repeated(event) && context.on) context.on('up', items[index]);
+        return true;
+      }
       light(null);
       if (detail) exitDetail();
       if (window.HomeApp && HomeApp.focusTop) HomeApp.focusTop();
@@ -803,8 +807,13 @@
   document.addEventListener('keyup', onKey, true);
   window.CasaShelf = {focus: focus, zone: setZone, feature: feature, refocus: refocus, reset: reset, pause: pause,
     editing: editing,
-    // For casa-home.js (OK on a card lights its title's first button): the next OK counts once 150 ms have passed.
-    light: function(id) { light(id); if (lit !== null) okAt = Date.now() - 350; return lit; },
+    // For casa-home.js (Up from a card lights its title's first button). key: the key that did it; still down, its
+    // repeats are not the buttons' (a held Up went on to the row before). An OK counts once 150 ms have passed.
+    light: function(id, key) {
+      light(id);
+      if (lit !== null) { okAt = Date.now() - 350; if (key) levelKey = key; }
+      return lit;
+    },
     redraw: function() { if (items.length) drawBar(); }, refresh: refresh,
     state: function() { return {zone: zone, row: row, lastRow: lastRow, detail: detail, lit: lit}; },
     util: {load: load, keep: keep, getJSON: getJSON, content: content, details: details, image: image, card: card,

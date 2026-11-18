@@ -51,7 +51,7 @@ body.casa-on .ambient { opacity: 0 !important; }
 
 #casaHero {
   position: absolute;
-  left: 136px;
+  left: 106px;   /* the dock band's left edge: the one column of Home (see the top bar, below) */
   bottom: 452px;
   width: 1120px;
   opacity: 0;
@@ -350,6 +350,12 @@ body.casa-detail #casaDots, body.casa-scopri #casaDots { display: none; }
 
 /* ---- top bar: the clock panel and one capsule with the weather and three icon buttons ------------ */
 
+/* One column for the whole of Home, the dock band's (106 px from either side on the C3): the clock box, the title's
+   words and buttons and the cards start on its left edge; the capsule, the band and the sixth card end on its right
+   edge. (The words and the cards started at 136 and the cards ran on to 1842: more room on the left than on the right.) */
+header { left: 106px; right: 106px; }
+#hero { left: 106px; }
+
 /* As on the Metz: no greeting, and the clock box as tall as the capsule and only as wide as its content
    (the header's flex stretched it to the buttons on the TV). */
 #leftBlock {
@@ -486,8 +492,10 @@ body.casa-dim .item.dock.shown:not(.focused) { opacity: 0.8; }
   opacity: 0;
   transition: opacity 300ms ease;
 }
-#dockBand::before { content: '\2039'; left: -30px; }
-#dockBand::after { content: '\203A'; right: -30px; }
+/* Inside the band, in the room beside its first and last app (28 px): outside, the right one hung past everything else
+   on the screen with nothing to answer it on the left. */
+#dockBand::before { content: '\2039'; left: 7px; }
+#dockBand::after { content: '\203A'; right: 7px; }
 body.dock-more-left #dockBand::before, body.dock-more-right #dockBand::after { opacity: 1; }
 /* Moving an app on one row: only Left and Right mean something. */
 .item.moving::after { content: '\25C0     \25B6'; }
@@ -506,7 +514,7 @@ body.editing #casaScopri { opacity: 0.25; }
    the ones before it are gone and the next one shows below. */
 #casaScopri {
   position: absolute;
-  left: 128px;
+  left: 98px;   /* its cards have 8 px of margin: the first starts at 106, the sixth ends at 1812 */
   transition: opacity 300ms ease, transform 460ms cubic-bezier(0.25, 0.8, 0.3, 1);
 }
 body.casa-detail #casaScopri { opacity: 0; }
@@ -622,11 +630,11 @@ body.casa-scopri-all #casaActions { visibility: hidden; }
   transition: background-color 2s ease;
 }
 #casaRest.night .rest-shade { background-color: rgba(0, 0, 0, 0.45); }
-.rest-top { position: absolute; top: 70px; left: 120px; transition: transform 4s ease; }
+.rest-top { position: absolute; top: 70px; left: 106px; transition: transform 4s ease; }
 .rest-clock { font-size: 190px; font-weight: 300; line-height: 0.9; letter-spacing: -0.04em; text-shadow: 0 6px 40px rgba(0, 0, 0, 0.5); }
 .rest-date { margin-top: 18px; margin-left: 8px; font-size: 28px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255, 255, 255, 0.88); text-shadow: 0 2px 16px rgba(0, 0, 0, 0.7); }
 .rest-weather { margin-top: 10px; margin-left: 8px; font-size: 26px; font-weight: 400; color: rgba(255, 255, 255, 0.94); text-shadow: 0 2px 16px rgba(0, 0, 0, 0.7); }
-.rest-scopri { position: absolute; left: 112px; bottom: 74px; }
+.rest-scopri { position: absolute; left: 98px; bottom: 74px; }
 .rest-scopri-title { margin-left: 8px; font-size: 20px; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; color: #e5a00d; text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8); }
 .rest-hint { margin-left: 22px; font-size: 18px; font-weight: 400; letter-spacing: 0.02em; text-transform: none; color: rgba(255, 255, 255, 0.7); }
 .rest-cards { white-space: nowrap; }
@@ -635,7 +643,7 @@ body.casa-scopri-all #casaActions { visibility: hidden; }
 .rest-caption {
   position: absolute;
   top: 96px;
-  right: 112px;
+  right: 106px;
   max-width: 620px;
   text-align: right;
   text-shadow: 0 2px 18px rgba(0, 0, 0, 0.6);
@@ -657,7 +665,7 @@ body.casa-list #casaHero, body.casa-list #viewport, body.casa-list #casaScopri, 
   z-index: 30;
   background: linear-gradient(180deg, rgba(4, 4, 6, 0.55) 0%, rgba(4, 4, 6, 0.2) 26%, rgba(4, 4, 6, 0.86) 46%, #040406 60%);
 }
-#casaListInfo { position: absolute; left: 136px; top: 60px; width: 1100px; opacity: 0; transition: opacity 200ms ease; }
+#casaListInfo { position: absolute; left: 106px; top: 60px; width: 1100px; opacity: 0; transition: opacity 200ms ease; }
 #casaListInfo.on { opacity: 1; }
 .casa-list-label { font-size: 22px; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; color: #e5a00d; }
 .casa-list-count { margin-left: 18px; letter-spacing: 0.02em; text-transform: none; color: rgba(255, 255, 255, 0.65); }
@@ -673,7 +681,7 @@ body.casa-list #casaHero, body.casa-list #viewport, body.casa-list #casaScopri, 
 /* A button lit: the card it acts on is marked, not focused (two white things looked focused at once). */
 #casaList.lit .casa-list-cells .casa-card.focused { transform: none; }
 #casaList.lit .casa-list-cells .casa-card.focused::after { opacity: 0.5; box-shadow: inset 0 0 0 2px #fff; }
-#casaListChips { position: absolute; left: 128px; top: 418px; white-space: nowrap; transition: transform 300ms ease; }
+#casaListChips { position: absolute; left: 106px; top: 418px; white-space: nowrap; transition: transform 300ms ease; }
 .casa-list-chip {
   display: inline-block;
   margin-right: 12px;
@@ -686,7 +694,7 @@ body.casa-list #casaHero, body.casa-list #viewport, body.casa-list #casaScopri, 
 }
 .casa-list-chip.on { color: #fff; border-color: #e5a00d; }
 .casa-list-chip.focused { color: #000; background: #fff; border-color: #fff; }
-#casaListGrid { position: absolute; left: 116px; right: 0; top: 486px; bottom: 0; overflow: hidden; }
+#casaListGrid { position: absolute; left: 86px; right: 0; top: 486px; bottom: 0; overflow: hidden; }   /* cells from 106 */
 .casa-list-cells { position: absolute; left: 20px; top: 16px; transition: transform 300ms cubic-bezier(0.25, 0.8, 0.3, 1); }
 .casa-list-cells .casa-card { position: absolute; margin: 0; opacity: 0.8; }
 .casa-list-cells .casa-card.focused { opacity: 1; }

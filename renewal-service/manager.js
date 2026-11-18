@@ -77,14 +77,17 @@ module.exports=function(io){
   });},
   allowed:function(){return !stopped&&state.enabled;},status:status,
   check:function(){return enqueue(check);},
-  enable:function(){var ticket=++generation;return enqueue(async function(){
+  // Fork lorenzoma97: homeDriven. A TV that is not rooted refuses the service its hourly activity (C3, webOS 26). When
+  // the caller says Home asks for the checks itself (it does at every look), the renewal is on all the same, marked
+  // homeDriven; without that word the answer is schedule-unavailable, as before.
+  enable:function(homeDriven){var ticket=++generation;return enqueue(async function(){
    if(state.updatePause)return Object.assign(status(),{error:'update-in-progress'});
    state.preferenceTouched=true;
    state.enabled=false;state.error=null;save();
-   var r=await io.schedule();
-   if(!r||r.returnValue!==true){state.error='schedule-unavailable';save();return status();}
+   var r=await io.schedule(),scheduled=!!r&&r.returnValue===true;
+   if(!scheduled&&homeDriven!==true){state.error='schedule-unavailable';save();return status();}
    if(ticket!==generation){await io.cancel();return status();}
-   state.enabled=true;stopped=false;save();return check();
+   state.enabled=true;state.homeDriven=!scheduled;stopped=false;save();return check();
   });},
   disable:function(){generation++;stopped=true;return enqueue(async function(){
    state.preferenceTouched=true;state.enabled=false;state.error=null;if(state.updatePause)state.updatePause.wasEnabled=false;var persisted=true;
